@@ -20,7 +20,8 @@ dev/research/
     ├── expD-measure-width.typ/.md   # #7779 宽度溢出不影响高度量测（✅）
     ├── expE-framefit.typ/.md        # framefit 可用性 + API（✅ 任务11核心可用）
     ├── expF-breakable.typ/.md       # 固定高块 breakable 语义（✅）
-    ├── expG-place.typ               # place 定位（进行中/部分）
+    ├── expG-place.typ/.md           # place 定位（✅ 5场景+官方语义）
+    ├── expI-typst-py-api.md         # typst-py query/eval API 验证（✅ 任务17关键）
     ├── expH-size-override.typ/.md   # measure 无约束嵌套异常 + U3 定案（✅ 关键发现）
     ├── expH2-showset-lock.typ       # show-set 锁公式字号（✅ 生效）
     ├── expH3-render.typ             # 渲染目检（内层 text 生效）
@@ -36,6 +37,7 @@ dev/research/
 | #2 framefit 缩放 × CJK 字体切换交互 | ✅ 生效 | expA：混合文本行高 = CJK 高 ×1.1 精确 |
 | #1 typst eval 批量多 label 查询 | ✅ `query(metadata)` 全量 + Python 按 label 分组 | expB：4 版一次取回，label 字段在元素上 |
 | #4 公式字号 × autofit 缩放 | ⚠️ **新发现**：公式随缩放（ratio 1.4），内层锁定无效 | expC/C2/C3，见下方 U3 对策 |
+| typst-py 是否暴露 query API | ✅ **暴露 query + eval**（进程内，免子进程） | expI：README + 源码 query.rs 确认，与 CLI 同路径；`typst.eval(file, "query(metadata)")` 返回 JSON |
 
 ## 新发现的关键坑（expH 系列定案）
 
