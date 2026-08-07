@@ -8,14 +8,25 @@
 ```
 dev/research/
 ├── README.md                        # 本索引
-├── philosophy/                      # 官方文档研究（后台代理产出）
-│   └── typst-philosophy-report.md   # Typst 哲学与开发算法研究（避坑指南）
+├── philosophy/                      # 官方文档研究
+│   ├── typst-official-docs-study.md # 官方文档直抓综合（measure/layout/context/query/block/show/place/grid/columns/text/math/page）
+│   └── typst-philosophy-report.md   # 后台代理的完整避坑指南（完成时合并）
 └── experiments/                     # 本地实测（typst 0.15.1 实证）
     ├── expA-cjk-scale.typ/.md       # autofit 缩放 × CJK 字体切换（风险#2 ✅解除）
-    ├── expB-batch-query.typ/.md     # eval 批量 label 查询（风险#1 ✅基本解除）
-    ├── expC-math-scale.typ          # 公式随 text(size:) 缩放（U3 风险 ⚠️）
-    ├── expC2-nested-fix.typ         # 内层 text 锁定公式字号（无效 ❌）
-    └── expC3-text-nested.typ/.md    # 内层 text(size:) 覆盖普遍性（外层赢）
+    ├── expB-batch-query.typ/.md     # eval 批量 label 查询（风险#1 ✅解除）
+    ├── expC-math-scale.typ/.md      # 公式随 text(size:) 缩放（U3 ⚠️ 经 expH 修正）
+    ├── expC2-nested-fix.typ         # 早期实验（结论弃用, 见 expH）
+    ├── expC3-text-nested.typ        # 早期实验（无约束 measure 异常假象）
+    ├── expD-measure-width.typ/.md   # #7779 宽度溢出不影响高度量测（✅）
+    ├── expE-framefit.typ/.md        # framefit 可用性 + API（✅ 任务11核心可用）
+    ├── expF-breakable.typ/.md       # 固定高块 breakable 语义（✅）
+    ├── expG-place.typ               # place 定位（进行中/部分）
+    ├── expH-size-override.typ/.md   # measure 无约束嵌套异常 + U3 定案（✅ 关键发现）
+    ├── expH2-showset-lock.typ       # show-set 锁公式字号（✅ 生效）
+    ├── expH3-render.typ             # 渲染目检（内层 text 生效）
+    ├── expH4-constrained.typ        # 有约束 measure 嵌套正常（✅）
+    ├── expH5-math-lock-final.typ    # show-set 免疫外层缩放（✅）
+    └── expH6-inner-lock-clean.typ   # 内层 text 锁公式无效（公式特例 ❌）
 ```
 
 ## 已解除的风险
@@ -26,9 +37,13 @@ dev/research/
 | #1 typst eval 批量多 label 查询 | ✅ `query(metadata)` 全量 + Python 按 label 分组 | expB：4 版一次取回，label 字段在元素上 |
 | #4 公式字号 × autofit 缩放 | ⚠️ **新发现**：公式随缩放（ratio 1.4），内层锁定无效 | expC/C2/C3，见下方 U3 对策 |
 
-## 新发现的关键坑（U3 需重新设计）
+## 新发现的关键坑（expH 系列定案）
 
-**公式字号无法通过内层 `text(size:)` 锁定**——最外层 `text(size:)` 直接参数覆盖所有内层（expC3 纯文本确认是普遍行为）。U3「公式不随正文字号旋钮缩放」需重新设计，4 个对策见 `experiments/expC-math-scaling.md`。
+1. **measure 无约束时对嵌套 text 异常**（宽度/高度误判）——**必须带宽度约束**（presswire 恰好如此）。
+2. **U3 定案**：`show math.equation: set text(size: 10pt)` 锁公式字号，**免疫外层缩放**（expH2/5）——任务 12 采用；内层 text 锁公式无效（expH6）。
+3. **columns() 不均衡列高**（文档明说）——任务 8 需 spike 列分配行为。
+4. **query 触发多遍编译**、自影响查询不收敛（5 次放弃）——任务 17 控制查询量。
+5. **原生 covers 分字体**（`font: (name:, covers: "latin-in-cjk")`）+ `cjk-latin-spacing`——比 ctyp 正则更原生的 CJK 方案候选（任务 14）。
 
 ## 配套文档
 

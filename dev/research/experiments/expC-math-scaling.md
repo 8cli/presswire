@@ -42,18 +42,23 @@ U3 要求「公式字号不随正文字号旋钮缩放」。framefit 用 `text(s
 
 **结论 C3**：这是 **Typst 普遍行为**——**最外层 `text(size:)` 直接参数覆盖所有内层 `text(size:)`**（无论嵌套 text 还是公式）。内层锁定字号不可行。
 
-## 综合结论
+## 综合结论（⚠️ 2026-08-07 经 expH 系列修订）
 
-⚠️ **U3 的核心前提「公式不随正文字号旋钮缩放」在 Typst 的 `text(size:)` 机制下无法通过内层 text 锁定实现。** 这是 presswire 需要重新设计的点。
+**本文件部分结论已由 expH 系列（expH-size-override.md）修正**：
 
-### 可行对策（供任务 12 决策）
+- ✅ 保留：公式随 `text(size:)` 缩放（expH6 干净验证：9pt=6.15 / 10pt=6.83）。
+- ❌ 修正：「内层 `text(size:)` 锁定无效」**对公式成立**（expH6：6.15pt 未恢复），但 **expC2 的结论源于无约束 measure 异常，需弃用**（expH1/H3/H4 显示无约束 measure 嵌套 text 异常、渲染正常、有约束正常）。
+- ✅ 定案：**U3 的解法是 show-set 锁定**——`show math.equation: set text(size: 10pt)` 对外层缩放免疫（expH2/expH5 实证 6.83pt 锁定）。
 
-1. **公式块脱离文本流**：块级公式用 `place`/绝对定位放在固定位置，不参与 framefit 的 measure 缩放（代价：布局复杂化）。
-2. **show 规则拦截**：`#show math.equation: set text(size: 10pt)` —— set 规则 vs 外层直接参数的优先级**未实测**，需 spike 验证（set 可能仍被外层直接参数覆盖）。
-3. **反向补偿**：公式外包 `box(scale: 1/factor)`，视觉上抵消外层缩放（factor 由 framefit 二分结果回传，需要两阶段）。
-4. **修改 U3 验收**：若公式随缩放可接受（autofit 只微调 8.5–11pt，公式随之 ±15%），把 U3 改为「公式随正文字号缩放但保持相对几何」——**最务实**。
+### 修正后的对策（任务 12 采用）
 
-**建议**：先做 2 的 spike（show math.equation set text 是否扛得住外层缩放），不行则走 4 修改验收，或 3 反向补偿。
+1. **show-set 锁定公式字号**（推荐，官方方式，实测有效）：
+   ```typst
+   #show math.equation: set text(size: 10pt)
+   ```
+2. 内层 `text(size:)` 锁公式**无效**（公式元素不吃 text 直接参数），勿用。
+3. 文本内容字号锁定可用内层 `text(size:)`（有约束 measure 实证有效）。
+4. 所有 measure 带宽度约束（避开无约束嵌套异常）。
 
 ## 附：实验中发现的 Typst 语义细节
 
