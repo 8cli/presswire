@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "presswire"
+version = "0.1.0"
+description = "报纸生成流水线: plates/*.md → typst → PDF → 校验"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "typst-py",
+    "pypdf",
+    "pillow",
+]
+
+[project.scripts]
+presswire = "presswire.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["presswire*"]
