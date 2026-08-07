@@ -102,3 +102,18 @@ P0 spike（`dev/p0.capacity.md`）三个假设全成立，阻塞解除：
 ## 七、版本锁定
 - typst **0.15.1**（实测版本）；CI 用 `typst compile` + `typst eval` 双命令。
 - 保留升级回归用例（0.11→0.15 breaking 清单见 `dev/research/philosophy/typst-philosophy-report.md` 第五节；未来 0.16 需再查 changelog）。
+
+## 八、2026-08-07 第二轮补充（panic 修正 + 标题/并排实测）
+
+### 任务 7 D4 红线修正（重要）
+- **实测**：`#panic()` 使 CLI 退出码为 **0**（语法错误才是 1）——「严重溢出 panic（退出码非0，QA 门禁）」按字面用 CLI 判断会**静默失效**。
+- **修复**：改用 typst-py 捕获——`typst.compile()` 遇 panic 抛 `TypstError` 异常 → Python `sys.exit(1)`（实测验证：`panicked with: 严重溢出` → TypstError 被捕获）。
+- 非严重溢出：compile 成功 → `typst.eval('query(metadata)')` 读 fill → demand.json（照常）。
+
+### 任务 15 标题宽度（expO1 实测）
+- 中文按字折行 / 英文按词折行 / 混合正确断行（14 字中文 165pt 自然宽折 2 行；英文 332.98pt 折 3 行）。
+- 超宽检测：`measure(text(title)).width`（无约束）vs 栏宽；超宽走 one-liner 缩放或接受折行。
+
+### 任务 16 plates=2 并排（expO2 实测）
+- `grid(1fr, 栏缝, 1fr)` 每页两版并排，每版独立固定块 + `#label("plate-PN")` + 独立溢出报告。
+- 两两配对（P1|P2, P3|P4）由 render 循环生成；栏缝对应 linotype `\colGap`。
