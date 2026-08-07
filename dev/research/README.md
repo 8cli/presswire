@@ -22,6 +22,11 @@ dev/research/
     ├── expF-breakable.typ/.md       # 固定高块 breakable 语义（✅）
     ├── expG-place.typ/.md           # place 定位（✅ 5场景+官方语义）
     ├── expI-typst-py-api.md         # typst-py query/eval API 验证（✅ 任务17关键）
+    ├── expJ-escape-rules.md         # 转义规则实测（✅ 任务5: markup反斜杠/code字符串免转义）
+    ├── expK-typst-py-runtime.md     # typst-py 端到端运行时（✅ 任务17: uv+3.12 全链路）
+    ├── expL-state-collector.md      # state 收集器（✅ 任务8 mainaside 侧栏）
+    ├── expM-image-handling.md       # 图片处理（✅ 任务10/13: 百分比measure陷阱→绝对宽）
+    ├── expN-ci-typst-install.md     # CI 装 typst（✅ 任务20: 官方 release 二进制）
     ├── expH-size-override.typ/.md   # measure 无约束嵌套异常 + U3 定案（✅ 关键发现）
     ├── expH2-showset-lock.typ       # show-set 锁公式字号（✅ 生效）
     ├── expH3-render.typ             # 渲染目检（内层 text 生效）
@@ -38,6 +43,11 @@ dev/research/
 | #1 typst eval 批量多 label 查询 | ✅ `query(metadata)` 全量 + Python 按 label 分组 | expB：4 版一次取回，label 字段在元素上 |
 | #4 公式字号 × autofit 缩放 | ⚠️ **新发现**：公式随缩放（ratio 1.4），内层锁定无效 | expC/C2/C3，见下方 U3 对策 |
 | typst-py 是否暴露 query API | ✅ **暴露 query + eval**（进程内，免子进程） | expI：README + 源码 query.rs 确认，与 CLI 同路径；`typst.eval(file, "query(metadata)")` 返回 JSON |
+| Typst 转义规则 | ✅ **code 字符串免转义 / markup 反斜杠转义** | expJ：`# $ < > [ ] * _` 字符串安全；markup 全套 `\` 转义 |
+| typst-py 运行时 | ✅ **端到端可用**（uv+py3.12+typst0.15.0） | expK：compile/eval/query 四通道全通；任务 17 进程内实现 |
+| state 收集器 | ✅ **0.15.1 可用**（侧栏收集 2 文章） | expL：任务 8 mainaside 机制成立 |
+| 图片处理 | ✅ **绝对宽正常 / 百分比 measure=0** | expM：IMAGEWIDTH 换算绝对宽；高度计入 fill |
+| CI 装 typst | ✅ **官方 release 二进制**（musl 静态） | expN：curl + tar，版本锁定 v0.15.1 |
 
 ## 新发现的关键坑（expH 系列定案）
 
