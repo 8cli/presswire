@@ -167,6 +167,16 @@ Its distinctive capabilities over the LaTeX original:
     └── run_tests.py      # 正负回归矩阵
 ```
 
+## 文档与调研
+
+| 文档 | 说明 |
+|---|---|
+| [docs/comparison-linotype.md](docs/comparison-linotype.md) | presswire vs linotype 全面评估（契约层相同 + 内核层差异） |
+| [docs/plan-revisions.md](docs/plan-revisions.md) | 计划修订与决策记录（P0 结论 / U3 定案 / 任务 17 修正 / 风险登记） |
+| [dev/research/README.md](dev/research/README.md) | 开发难点调研索引（风险矩阵 + 交叉验证） |
+| [dev/research/philosophy/](dev/research/philosophy/) | Typst 哲学与避坑指南（17 坑 / 版本注意 / 官方文档研究） |
+| [dev/research/experiments/](dev/research/experiments/) | 9 组本地实测（typst 0.15.1 实证：measure/CJK/framefit/U3） |
+
 ## License
 
 [MIT](LICENSE) © 2026 Yu (8cli)
