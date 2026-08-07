@@ -10,7 +10,8 @@ dev/research/
 ├── README.md                        # 本索引
 ├── philosophy/                      # 官方文档研究
 │   ├── typst-official-docs-study.md # 官方文档直抓综合（measure/layout/context/query/block/show/place/grid/columns/text/math/page）
-│   └── typst-philosophy-report.md   # 后台代理的完整避坑指南（完成时合并）
+│   ├── typst-philosophy-report.md   # 代理避坑指南（17 坑 / 版本注意 / 算法模式）
+│   └── cjk-universe-compat.md       # CJK 包兼容性（✅ ctyp 0.3.0 / unbreak / unshrink / spacer 实测）
 └── experiments/                     # 本地实测（typst 0.15.1 实证）
     ├── expA-cjk-scale.typ/.md       # autofit 缩放 × CJK 字体切换（风险#2 ✅解除）
     ├── expB-batch-query.typ/.md     # eval 批量 label 查询（风险#1 ✅解除）
@@ -48,6 +49,7 @@ dev/research/
 | state 收集器 | ✅ **0.15.1 可用**（侧栏收集 2 文章） | expL：任务 8 mainaside 机制成立 |
 | 图片处理 | ✅ **绝对宽正常 / 百分比 measure=0** | expM：IMAGEWIDTH 换算绝对宽；高度计入 fill |
 | CI 装 typst | ✅ **官方 release 二进制**（musl 静态） | expN：curl + tar，版本锁定 v0.15.1 |
+| CJK universe 包 | ✅ **ctyp 0.3.0**（0.3.1 有 title bug）+ unbreak/unshrink/spacer 全通 | cjk-universe-compat.md：四包 0.15.1 编译冒烟 + 用法骨架 |
 
 ## 新发现的关键坑（expH 系列定案）
 
