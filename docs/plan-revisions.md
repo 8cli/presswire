@@ -58,6 +58,7 @@ P0 spike（`dev/p0.capacity.md`）三个假设全成立，阻塞解除：
 - **采用 measure 对比模式**：模板内 `measure(body, width: W).height` vs 帧高 H → fill/deficit 写 metadata + label；进程侧 `typst eval 'query(metadata)'` 全量取回（**含 label 字段**，expB 实证）→ Python 按 label 分组 → demand.json。
 - **防不可断长词假阴性（双测法）**：① 无约束 `measure(text).width` 得自然宽 W；② 约束 `measure(width: W₀, text).height` 得高 H。若 W > W₀ 且 H 单行 → 不可断行溢出，判 overflow。
 - **query 触发多遍编译**（文档：自影响查询 5 次放弃）→ 控制查询量；0.15 有布局不收敛详细诊断可当 CI 报警器。
+- **调用方式升级（2026-08-07 expI 验证）**：优先**进程内 `typst-py`**——`typst.eval("out.typ", "query(metadata)")` 返回 JSON 字符串，`json.loads` 后 Python 按 label 分组（免子进程，源码 query.rs 确认与 CLI 同路径）；降级路径子进程 `typst eval` CLI（0.15.1 已装，P0 验证可行）。**要求 Python 3.12/3.13**（typst-py wheel 无 3.14）。
 
 ### 任务 19/20 — 测试与 CI
 - 测试数量**以 linotype 实际 14 个测试函数为基**迁移 + 新增（非计划早期写的 25/28）。
