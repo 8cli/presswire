@@ -53,5 +53,20 @@ dev/research/
 
 ## 待合并
 
-- [x] 本地实验（expA/B/C/C2/C3）已入库
-- [ ] 后台代理的官方文档调研报告 → `philosophy/`（完成时合并）
+- [x] 本地实验（expA-F/H 系列）已入库
+- [x] 官方文档直抓研究 → `philosophy/typst-official-docs-study.md`
+- [x] 代理避坑指南 → `philosophy/typst-philosophy-report.md`（已合并）
+
+## 两报告的交叉验证与差异
+
+| 主题 | 两报告一致 | 差异/互补 |
+|---|---|---|
+| measure 溢出宽 #7779 | 约束宽裁剪、不可断长词单行高假阴性 | 代理有精确数值（30pt→30pt vs 自然 389.9pt）；本地 expD 同结论 |
+| metadata 长度字符串化 | "992.22pt"/"410.1pt" 均为字符串 | 一致 |
+| label 挂法 | markup 相邻，context 包装会挂到 context 元素 | 一致 |
+| 公式字号 | 随 text(size:) 缩放 | 代理说 set math(size:) 无效；本地定案 show-set 锁字号（更强解法） |
+| measure 无约束嵌套异常 | — | **本地独有发现**（expH：宽度 79.65pt 异常/高度误判，有约束正常） |
+| 内层 text 锁字号 | — | **本地独有**（文本有效 expH4；公式无效 expH6） |
+| 溢出检测 | 代理：锚点页差法对固定版心**不可用** | **重要**——修正计划任务 17（edwinhu 骨架 → measure 对比） |
+| CJK | \p{Han} 可用、show-regex×text(size:) 兼容 | 本地补充 covers 原生分字体 + cjk-latin-spacing |
+| 性能 | 1200 次 measure 仅 +4% | 24 步二分无压力 |
