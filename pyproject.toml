@@ -10,8 +10,10 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
+# 注: "typst-py" 是社区俗称，PyPI 实际包名为 `typst`（提供 `import typst` 的 Python 绑定）。
+# Python 3.14 无 wheel + PEP 668 外部管理环境 → 依赖安装留 CI/venv（锁 3.12/3.13）。
 dependencies = [
-    "typst-py",
+    "typst",
     "pypdf",
     "pillow",
 ]
