@@ -17,20 +17,24 @@
 #import "plate.typ": plate-frame
 #import "mainaside.typ": render-mainaside
 #import "columns.typ": render-columns
+#import "theme.typ": themes, theme-state, apply-theme
 
 #let render-doc(
   plates,                        // 版数据数组（render_typst.py 生成）
+  theme: "broadsheet",           // 主题预设（--theme 插槽，任务 9）
   paper-width: 420mm,            // A3 横向（latin docopts: paper=a3,landscape）
   paper-height: 297mm,
   margin: (x: 15mm, y: 15mm),    // 版心在 plate-frame 内管理（latin padTop 20/padSide 15/bottom 16）
   body-size: 10pt,
   header-size: 8pt,
 ) = {
+  let t = themes.at(theme, default: themes.at("broadsheet"))
   set page(width: paper-width, height: paper-height, margin: margin)
   set text(size: body-size, lang: "zh", region: "cn",
-           font: ("Noto Serif CJK SC", "Noto Sans CJK SC",
-                  "Libertinus Serif", "New Computer Modern"))
+           font: t.at("body-font"), fill: t.at("ink"))
   set par(justify: true, leading: 0.65em)
+  // 主题 state 同步（atoms 内 context 读 accent/ink）
+  theme-state.update(t)
 
   // 版心尺寸（latin linotype.cls 契约）: contentH = 297 − 20 − 16 = 261mm
   let content-w = paper-width - 2 * 15mm
