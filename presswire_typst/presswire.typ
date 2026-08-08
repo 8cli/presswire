@@ -15,6 +15,8 @@
 // content 块 `[...]` 内的表达式（#text/#if/#for/#v）才带 `#`。
 
 #import "plate.typ": plate-frame
+#import "mainaside.typ": render-mainaside
+#import "columns.typ": render-columns
 
 #let render-doc(
   plates,                        // 版数据数组（render_typst.py 生成）
@@ -46,73 +48,28 @@
     return
   }
 
-  // ---- 逐版排版（占位版体: 任务 8 换 mainaside/columns 版式）----
+  // ---- 逐版排版（按 layout 分支选版式: main-aside → mainaside；其他 → columns）----
   for (i, p) in plates.enumerate() {
     let pid = "plate-P" + str(i + 1)
-    plate-frame([
-        // 版头字段
-        #if p.at("date", default: "") != "" [
-          #text(size: header-size)[#p.at("date")] \
-        ]
-        #if p.at("kicker", default: "") != "" [
-          #text(size: 9pt, weight: "bold")[#p.at("kicker")] \
-        ]
-        #if p.at("headline", default: "") != "" [
-          #text(size: 15pt, weight: "bold")[#p.at("headline")] \
-        ]
-        #if p.at("subheadline", default: "") != "" [
-          #text(size: 11pt, weight: "bold")[#p.at("subheadline")] \
-        ]
-        #if p.at("deck", default: "") != "" [
-          #text(size: body-size, style: "italic")[#p.at("deck")] \
-        ]
-        #if p.at("byline", default: "") != "" [
-          #text(size: header-size)[#p.at("byline")] \
-        ]
-        #if p.at("expanded", default: "") != "" [
-          #text(size: body-size + 1pt, weight: "bold")[#p.at("expanded")] \
-        ]
-        // 正文
-        #for para in p.at("body", default: ()) [
-          #par[#para]
-        ]
-        // 引文
-        #if p.at("pullquote", default: "") != "" [
-          #v(4pt)
-          #block(stroke: (left: 2pt + black), inset: (left: 6pt), width: 100%)[
-            #text(size: body-size + 1pt, style: "italic")[#p.at("pullquote")]
-          ]
-        ]
-        // 副故事
-        #for st in p.at("stories", default: ()) [
-          #v(4pt)
-          #text(size: 11pt, weight: "bold")[#st.at("headline", default: "")]
-          #if st.at("byline", default: "") != "" [
-            #text(size: header-size)[#st.at("byline")] \
-          ]
-          #for para in st.at("body", default: ()) [
-            #par[#para]
-          ]
-        ]
-        // 简讯
-        #if p.at("briefs", default: ()).len() > 0 [
-          #v(4pt)
-          #text(size: 9pt, weight: "bold")[IN BRIEF] \
-          #for item in p.at("briefs", default: ()) [
-            #item \
-          ]
-        ]
-        #if p.at("mainbriefs", default: ()).len() > 0 [
-          #v(4pt)
-          #text(size: 9pt, weight: "bold")[MAIN BRIEFS] \
-          #for item in p.at("mainbriefs", default: ()) [
-            #item \
-          ]
-        ]
-      ], pid,
+    let layout = p.at("layout", default: "")
+    let body = if layout == "main-aside" {
+      render-mainaside(p, content-w)
+    } else {
+      render-columns(p, content-w)
+    }
+    plate-frame(
+      // 日期线（版顶，latin \dateline 计入版心预算）
+      [#if p.at("date", default: "") != "" [
+        #text(size: header-size)[#p.at("date")] \
+      ]
+      #body],
+      pid,
       width: content-w,
       height: content-h,
     )
-    pagebreak()
+    // 非最后版才分页（避免尾随空页）
+    if i < plates.len() - 1 {
+      pagebreak()
+    }
   }
 }

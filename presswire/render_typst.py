@@ -25,9 +25,20 @@ def _typst_str(s: str) -> str:
     return '"' + s + '"'
 
 
+def _typst_array(items: list) -> str:
+    """Typst 数组字面量。
+
+    **单元素陷阱**（2026-08-08 实测）: `(x)` 在 Typst 是括号分组（= x 本身），
+    必须 `(x,)` 尾逗号才是数组。空数组 → `()`。
+    """
+    if not items:
+        return '()'
+    return '(' + ', '.join(items) + ',)'
+
+
 def _typst_plates_list(v: list) -> str:
-    """字符串数组 → Typst 数组字面量 `("a", "b")`。空数组 → `()`。"""
-    return '(' + ', '.join(_typst_str(x) for x in v) + ')'
+    """字符串数组 → Typst 数组字面量 `("a", "b",)`。"""
+    return _typst_array([_typst_str(x) for x in v])
 
 
 def _typst_story(st: dict) -> str:
@@ -52,11 +63,11 @@ def render_plate(p: dict) -> str:
     parts = []
     for k in keys:
         val = p.get(k, '')
-        if k == 'stories':
-            inner = ', '.join(_typst_story(st) for st in val)
-            parts.append(f'"stories": ({inner})')
-        elif isinstance(val, list):
-            parts.append(f'"{k}": {_typst_plates_list(val)}')
+        if isinstance(val, list):
+            if k == 'stories':
+                parts.append(f'"{k}": {_typst_array([_typst_story(st) for st in val])}')
+            else:
+                parts.append(f'"{k}": {_typst_plates_list(val)}')
         else:
             parts.append(f'"{k}": {_typst_str(val)}')
     return '(' + ', '.join(parts) + ')'

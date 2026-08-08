@@ -46,17 +46,22 @@
 - 富文本（markdown `**x**`/`*x*`）在原子内转 Typst markup：`**x**` → `*x*`（strong）、
   `*x*` → `_x_`（emphasis）；其余字符串已 `_escape`（code 字符串安全）。
 
-## 3. 版式函数（任务 8 实现，签名预冻结）
+## 3. 版式函数（任务 8 实现，2026-08-08 冻结）
 
-文件：`presswire_typst/mainaside.typ` / `presswire_typst/columns.typ`（尚未创建）
+文件：`presswire_typst/mainaside.typ` / `presswire_typst/columns.typ`（✅ 已创建）
 
 ```typst
-#let render-mainaside(p)    // p: 版数据 dict（plates 数组元素）→ content
-#let render-columns(p)      // p: 版数据 dict → content（等宽多栏，columns 字段控制）
+#let render-mainaside(p, content-w, col-gap: 3.75mm)   // → content
+#let render-columns(p, content-w, col-gap: 3.75mm)     // → content
 ```
 
-- 返回 content，由 render-doc 包进 `plate-frame(body: <版式输出>, plate-id: "plate-P{n}")`。
-- main-aside 侧栏收集用 `state()` 收集器（expL：`state("articles", ()).update(...)`）。
+- 返回 content，由 render-doc 包进 `plate-frame(<版式输出>, "plate-P{n}", width: content-w, ...)`。
+- `content-w` 由 render-doc 传入（= paperW − 2·padSide）；版式内部分栏不再查容器尺寸。
+- 几何（latin 契约）: mainaside 主栏 = 2/3·W − 1/3·gap，侧栏 = 1/3·W − 2/3·gap；
+  columns 列数由 `p.columns` 驱动（缺省 3）。
+- **state() 收集器不适用**（2026-08-08 决策）: presswire 的 stories/briefs 在
+  plates 数据模型中已是结构化数组，直接渲染进侧栏（state 用于内容散落文档流的场景）。
+- mainbriefs: 主栏底部补白（排在主栏正文后；栏底对齐归任务 11 autofit）。
 
 ## 4. demand.json / layout.json — 契约结构（任务 6 定案）
 
