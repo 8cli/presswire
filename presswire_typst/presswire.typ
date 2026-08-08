@@ -29,6 +29,7 @@
   paper-width: 420mm,            // A3 横向（latin docopts: paper=a3,landscape）
   paper-height: 297mm,
   margin: (x: 15mm, y: 15mm),    // 版心在 plate-frame 内管理（latin padTop 20/padSide 15/bottom 16）
+  plates-per-page: 1,            // 每页版数（plates=2 → 双版并排 grid，expO2 定案）
   body-size: 10pt,
   header-size: 8pt,
 ) = {
@@ -43,8 +44,14 @@
   theme-state.update(t)
 
   // 版心尺寸（latin linotype.cls 契约）: contentH = 297 − 20 − 16 = 261mm
-  let content-w = paper-width - 2 * 15mm
+  // 双版并排（plates=2）: 每版宽 = 0.5·paperW − 2·padSide（latin contentW 公式）
+  let content-w = if plates-per-page == 2 {
+    paper-width * 0.5 - 2 * 15mm
+  } else {
+    paper-width - 2 * 15mm
+  }
   let content-h = paper-height - 20mm - 16mm
+  let col-gap = 3.75mm   // latin \colGap（双版并排的栏缝）
 
   // ---- 空版占位嵌入（无 plates 输入时仍能编译出 PDF）----
   if plates.len() == 0 {
@@ -58,14 +65,15 @@
     return
   }
 
-  // ---- 逐版排版（按 layout 分支选版式: main-aside → mainaside；其他 → columns）----
-  for (i, p) in plates.enumerate() {
-    let pid = "plate-P" + str(i + 1)
+  // ---- 版渲染（按 layout 分支选版式: main-aside → mainaside；其他 → columns）----
+  // 单版渲染函数（autofit/日期线/plate-frame 统一组装）
+  let render-one(p, idx, width) = {
+    let pid = "plate-P" + str(idx)
     let layout = p.at("layout", default: "")
     let body = if layout == "main-aside" {
-      render-mainaside(p, content-w)
+      render-mainaside(p, width)
     } else {
-      render-columns(p, content-w)
+      render-columns(p, width)
     }
     // autofit 旋钮: 开启时对整版内容做 framefit 字号收敛（fit 版心）；
     // 关闭（--no-autofit）→ 原样渲染（溢出由 plate-frame 报告/panic）
@@ -89,13 +97,40 @@
     plate-frame(
       final-body,
       pid,
-      width: content-w,
+      width: width,
       height: content-h,
       severe-fill: if autofit { 100.0 } else { 1.05 },
     )
-    // 非最后版才分页（避免尾随空页）
-    if i < plates.len() - 1 {
-      pagebreak()
+  }
+
+  if plates-per-page == 2 {
+    // ---- 双版并排（expO2 定案）: 每页 grid(1fr, 栏缝, 1fr) 两版独立固定块 ----
+    for (gi, g) in plates.chunks(2).enumerate() {
+      let left = g.at(0)
+      let has-right = g.len() > 1
+      grid(
+        columns: (1fr, col-gap, 1fr),
+        [#render-one(left, gi * 2 + 1, content-w)],
+        [],
+        if has-right {
+          [#render-one(g.at(1), gi * 2 + 2, content-w)]
+        } else {
+          []
+        },
+      )
+      // 非最后组才分页
+      if gi < plates.chunks(2).len() - 1 {
+        pagebreak()
+      }
+    }
+  } else {
+    // ---- 单版（默认）----
+    for (i, p) in plates.enumerate() {
+      render-one(p, i + 1, content-w)
+      // 非最后版才分页（避免尾随空页）
+      if i < plates.len() - 1 {
+        pagebreak()
+      }
     }
   }
 }
