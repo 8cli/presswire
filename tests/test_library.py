@@ -29,6 +29,7 @@ LATIN_PLATES = Path.home() / 'news' / 'latex' / 'examples' / 'plates'  # 真实�
 OUT_NAME = 'out-test-library'
 # 输出须在 root 内（Typst 沙箱）→ 用仓库内 tests/tmp-out-library/（test_cli 同模式）
 TMP_ROOT = REPO_ROOT / 'tests' / 'tmp-out-library'
+TMP_ROOT.mkdir(parents=True, exist_ok=True)  # pytest 模式也须可用（_cleanup 只在 __main__ 直接执行时跑）
 
 TYPSTPY_OK = False
 try:
