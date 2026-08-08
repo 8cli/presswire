@@ -43,9 +43,10 @@ jobs:
           pip install "typst==0.15.0"
           pip install "pypdf>=4.0" "pillow>=10.0" "fonttools>=4.50"
 
-      # 任务 19 接入真实 typst 编译测试后启用:
-      # - name: Install fonts (Noto SC 静态实例)
-      #   run: bash scripts/ci-install-fonts.sh
+      # CJK 测试（test_CJK/test_zh_headline_width）需要 Noto SC——ubuntu 默认无
+      # （任务 3 脚本已实测，幂等；首次数分钟级）
+      - name: Install fonts (Noto SC 静态实例)
+        run: bash scripts/ci-install-fonts.sh
 
       - name: Smoke — typst CLI + typst-py
         run: |

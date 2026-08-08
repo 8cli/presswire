@@ -84,11 +84,17 @@ def docopts_to_render(docopts: dict) -> dict:
 
 
 def render_kw_to_typst(kw: dict) -> str:
-    """render-doc 命名参数 dict → Typst 调用参数串。"""
+    """render-doc 命名参数 dict → Typst 调用参数串。
+
+    值类型保持: 数字不带引号（plates-per-page: 2）、bool 小写、
+    length 原样（420mm）、其余字符串带引号。
+    """
     parts = []
     for k, v in kw.items():
         if isinstance(v, bool):
             parts.append(f'{k}: {str(v).lower()}')
+        elif isinstance(v, (int, float)):
+            parts.append(f'{k}: {v}')
         elif k in ('paper-width', 'paper-height'):
             parts.append(f'{k}: {v}')
         else:

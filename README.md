@@ -34,19 +34,30 @@
 ## Quick Start
 
 ```bash
-# 1. 创作内容 —— 每个 plate 一个 Markdown 文件（见 examples/plates/）
-ls examples/plates/
+# 1. 创作内容 —— 每个 plate 一个 Markdown 文件（见 examples/zh_mixed/）
+ls examples/zh_mixed/
 
-# 2. 从 plates 生成 Typst 数据文本
-python3 build.py examples/plates/ examples/sample.typ \
-    --docopts "paper=a3,landscape,columns=3,plates=1"
+# 2. 生成 + 编译出 PDF（一键流水线）
+python3 -m presswire.cli examples/zh_mixed/ examples/out.pdf \
+    --docopts "paper=a3,landscape,plates=2,columns=3" --demand
 
-# 3. 编译
-typst compile examples/sample.typ
+# 3. 后处理 QA
+python3 -m presswire.pdfcheck examples/out.pdf --paper a3 --landscape --pages 1
 
-# 4. 后处理 QA
-python3 pdfcheck.py examples/sample.pdf --paper a3 --landscape --pages 2
+# 4. 视觉检查（渲染 + 空白带检测）
+pdftoppm -png -r 100 examples/out.pdf /tmp/page
+python3 -m presswire.pixelcheck /tmp/page-1.png --full --cols 2
 ```
+
+## Examples
+
+| 样例 | 位置 | 覆盖 |
+|---|---|---|
+| 中英混排长文 | `examples/zh_mixed/sample.typ` | CJK 四包组合 + 中文标点 + 行内公式（任务 14 前置验证） |
+| 版式测试（main-aside/columns） | `tests/fixtures/layouts/` | P1 主栏+侧栏 / P2 等宽 3 栏（QA 复用） |
+| 数学公式 | `tests/fixtures/math/` | 内联 + 块级公式 + U3 字号锁定（QA 复用） |
+| 画报 | `tests/fixtures/poster/` | place 贪心装配双图 + 标题凌驾（QA 复用） |
+| 原子全覆盖 | `tests/fixtures/atoms/` | 版头 7 原子 + photo/pullquote/brief + 富文本（QA 复用） |
 
 ## Content Format
 
@@ -104,21 +115,21 @@ BRIEFS:                   # 可选，最多 3 条
 | `bodyfontsize` | 长度 | `9.5pt` | 正文基字号——autofit 旋钮；所有原子按比例缩放 |
 | `ink` / `accent` / `papercolor` | hex | `1A1A1A` / `8C1D18` / `FFFFFF` | 颜色 |
 
-### `build.py` CLI 参考
+### `presswire.cli` CLI 参考
 
 ```
-python3 build.py <plates_dir> <output.typ> [options]
+python3 -m presswire.cli <plates_dir> <output.pdf> [options]
 
 positional:
   plates_dir    存放 plates/pN.md 的目录
-  output        输出 .typ 路径（autofit 模式下另产出 .pdf + .log）
+  output        输出 .pdf 路径（须在仓库根内——Typst 沙箱，同 latin 引擎目录先例）
 
 options:
-  --docopts "paper=a3,landscape,columns=3,plates=1"   排版键（逗号分隔）
-  --theme magazine        主题预设
-  --no-autofit            仅生成 .typ，不编译不搜索
-  --visual                autofit 后渲染 PDF → 像素诊断 → 修复建议
-  --demand                输出 demand.json 补白请求
+  --docopts "paper=a3,landscape,columns=3,plates=2"   排版键（逗号分隔）
+  --theme magazine        主题预设（broadsheet 默认）
+  --no-autofit            关闭自动版面调整（单编译纯生成）
+  --visual                （任务 18 已备）渲染 PDF → 像素诊断（pixelcheck）
+  --demand                输出 demand.json 补白请求（imposer 按单补稿）
 ```
 
 ## QA Pipeline
@@ -153,18 +164,33 @@ Its distinctive capabilities over the LaTeX original:
 ## 项目布局
 
 ```
-├── presswire.typ         # Typst 基础模板（page + 逐版排版 + 空"权威"嵌入）
-├── plate.typ             # 固定高度内容盒 + 溢出 clip + metadata 报告
-├── autofit.typ           # framefit 二分 measure 收敛
-├── build.py              # 内容流水线：plates → .typ + layout.json
-├── pdfcheck.py           # PDF 后处理 QA
-├── SKILL.md              # Claude Code skill 手册（agent 面向）
+├── presswire/                 # Python 包
+│   ├── cli.py                 # 命令行入口（--docopts/--theme/--no-autofit/--visual/--demand）
+│   ├── plates.py              # plates/pN.md → dict（parse_plate，latin 契约移植）
+│   ├── render_typst.py        # dict → #let plates = (...) Typst 数据文本
+│   ├── contracts.py           # demand.json/layout.json 字节级契约
+│   ├── overflow.py            # 溢出报告读取 + demand 组装（任务 17）
+│   ├── pdfcheck.py            # PDF 后处理 QA（PANIC/MediaBox/FONTS/PAGES）
+│   └── pixelcheck.py          # 像素级空白带检测（numpy+PIL）
+├── presswire_typst/           # Typst 模板资产
+│   ├── presswire.typ          # 主模板（page + 逐版 + 双版并排 + autofit 旋钮）
+│   ├── plate.typ              # 固定版心 + measure + metadata 溢出报告（D4 红线）
+│   ├── theme.typ              # 主题预设（broadsheet/magazine）
+│   ├── mainaside.typ          # main-aside 版式（P1）
+│   ├── columns.typ            # 等宽多栏版式（P2-P4）
+│   ├── atoms.typ              # 排版原子（kicker/headline/photo/pullquote/brief...）
+│   ├── autofit.typ            # framefit 二分收敛（单次 compile）
+│   ├── math.typ               # 公式字号锁定（U3）
+│   ├── poster.typ             # 画报（place 贪心装配，N3）
+│   └── cjk.typ                # CJK 四包集成（ctyp 0.3.0 + unbreak/unshrink/spacer）
 ├── examples/
-│   └── plates/           # 示例内容（全部字段格式）
+│   └── zh_mixed/              # 中英混排长文样例
 ├── scripts/
-│   └── ci-install-fonts.sh  # 静态字体安装（含 Noto Sans/Serif SC）
-└── tests/
-    └── run_tests.py      # 正负回归矩阵
+│   └── ci-install-fonts.sh    # 静态字体安装（含 Noto Sans/Serif SC）
+├── tests/
+│   └── test_*.py              # 任务级 QA（独立可跑 + run_tests.py 聚合）
+│   └── run_tests.py           # 回归 runner（13 PASS + 1 SKIP 当前）
+└── .github/workflows/ci.yml   # CI（Python 3.12 + typst CLI + typst-py）
 ```
 
 ## 文档与调研
@@ -175,7 +201,7 @@ Its distinctive capabilities over the LaTeX original:
 | [docs/plan-revisions.md](docs/plan-revisions.md) | 计划修订与决策记录（P0 结论 / U3 定案 / 任务 17 修正 / 风险登记） |
 | [dev/research/README.md](dev/research/README.md) | 开发难点调研索引（风险矩阵 + 交叉验证） |
 | [dev/research/philosophy/](dev/research/philosophy/) | Typst 哲学与避坑指南（17 坑 / 版本注意 / 官方文档研究） |
-| [dev/research/experiments/](dev/research/experiments/) | 9 组本地实测（typst 0.15.1 实证：measure/CJK/framefit/U3） |
+| [dev/research/experiments/](dev/research/experiments/) | 18 组本地实测（typst 0.15.1 实证：measure/CJK/framefit/U3/place 贪心/columns 固定块） |
 
 ## License
 
