@@ -207,6 +207,12 @@ def render(plates_dir: str, output: str,
     result['backend'] = backend
     result['code'] = code
     result['fills'] = fills
+    # 2026-08-08 信号语义（分栏修复 + fit-copy 废弃）: autofit 模式 severe-fill=1.0
+    # 的 panic（"严重溢出"）即"内容超出版心"→ 归并为文章不符合信号；
+    # no-autofit 模式 severe-fill=1.05 的 panic 才是真正的严重溢出。
+    if autofit and panic:
+        panic = False
+        mismatch = True
     result['article_mismatch'] = mismatch
     result['panic'] = panic
     result['audit_stdout'] = out_s

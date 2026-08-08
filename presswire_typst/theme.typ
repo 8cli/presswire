@@ -10,19 +10,24 @@
 //
 // 用法: render-doc(plates, theme: "magazine")；atoms 读
 //   #let accent = theme-value("accent", default: rgb("#8C1D18"))
+//
+// 2026-08-08 修复（真实出报首跑）: body-font 原为 Noto Serif CJK SC 优先——
+// 纯英文板材也走 CJK 字体（英文 glyph 更宽，版面容量浪费 20-30%，P4 实测
+// 953pt vs 733pt）。改 Libertinus Serif 优先（英文衬线，CJK 内容经字体回退
+// 自动走 Noto——Typst 按字符回退，中英混排不受影响）。
 
 #let themes = (
   // broadsheet（默认，对应 latin newspaper）: 衬线 + 深红
   "broadsheet": (
-    body-font: ("Noto Serif CJK SC", "Libertinus Serif", "New Computer Modern"),
-    display-font: ("Noto Serif CJK SC", "Libertinus Serif"),
+    body-font: ("Libertinus Serif", "Noto Serif CJK SC", "New Computer Modern"),
+    display-font: ("Libertinus Serif", "Noto Serif CJK SC"),
     accent: rgb("#8C1D18"),
     ink: rgb("#1A1A1A"),
   ),
   // magazine: 深蓝强调（latin magazine 契约）
   "magazine": (
-    body-font: ("Noto Serif CJK SC", "Libertinus Serif", "New Computer Modern"),
-    display-font: ("Noto Serif CJK SC", "Libertinus Serif"),
+    body-font: ("Libertinus Serif", "Noto Serif CJK SC", "New Computer Modern"),
+    display-font: ("Libertinus Serif", "Noto Serif CJK SC"),
     accent: rgb("#1B3A5C"),
     ink: rgb("#1A1A1A"),
   ),

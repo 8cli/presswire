@@ -21,7 +21,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 TYPST_CLI = '/usr/local/bin/typst'
-LATIN_PLATES = Path.home() / 'news/latex/examples/plates'
+LATIN_PLATES = Path.home() / 'news/latex/examples/plates'  # 修复后不再溢出
+OVERFLOW_PLATES = REPO_ROOT / 'tests' / 'fixtures' / 'overflow'
 OUT_NAME = 'out-test-autofit'
 
 
@@ -48,12 +49,14 @@ def test_overflow_signals_article_mismatch():
     """溢出长文（12% 溢出）: autofit=true 字号固定 100% 不缩放 → 明确"文章
     不符合"信号（CLI 退出码 1 + framefit panic）。2026-08-08 用户决策:
     内容适配靠 imposer 选/改文章，不是字号缩放。"""
-    typ = _gen(f'{OUT_NAME}-fit', LATIN_PLATES, autofit=True)
+    typ = _gen(f'{OUT_NAME}-fit', OVERFLOW_PLATES, autofit=True)
     try:
         r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
                            capture_output=True, text=True)
         assert r.returncode == 1, f'超版心应报信号（不缩放）: {r.stderr[:200]}'
-        assert 'content does not fit' in r.stderr, f'应 framefit panic: {r.stderr[:200]}'
+        # 2026-08-08 信号升级: fit-copy 废弃（text 包裹 grid 检测不可靠），
+        # 溢出门禁归 plate-frame measure（severe-fill 1.0）→ "严重溢出" panic
+        assert '严重溢出' in r.stderr, f'应 plate-frame 严重溢出 panic: {r.stderr[:200]}'
         # 不生成 PDF（超出即失败，imposer 选/改文章）
         assert not typ.with_suffix('.pdf').exists(), '超出不应出 PDF'
     finally:
@@ -62,7 +65,7 @@ def test_overflow_signals_article_mismatch():
 
 def test_no_autofit_panics():
     """同长文 no-autofit → 严重溢出 panic（CLI 退出码 1）。"""
-    typ = _gen(f'{OUT_NAME}-nofit', LATIN_PLATES, autofit=False)
+    typ = _gen(f'{OUT_NAME}-nofit', OVERFLOW_PLATES, autofit=False)
     try:
         r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
                            capture_output=True, text=True)

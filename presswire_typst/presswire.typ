@@ -80,33 +80,22 @@
     } else {
       render-columns(p, width)
     }
-    // autofit 旋钮: 开启时对整版内容做 framefit 字号收敛（fit 版心）；
-    // 关闭（--no-autofit）→ 原样渲染（溢出由 plate-frame 报告/panic）。
-    // 画报（poster）例外: place 贪心装配已固定布局（固定尺寸板块），
-    // framefit 无法收缩（实测 panic: content does not fit）→ 跳过
-    let final-body = if autofit and layout != "poster" {
-      [#if p.at("date", default: "") != "" [
-        #text(size: header-size)[#p.at("date")] \
-      ]
-      #autofit-body([#body])]
-    } else {
-      [#if p.at("date", default: "") != "" [
-        #text(size: header-size)[#p.at("date")] \
-      ]
-      #body]
-    }
-    // 2026-08-08 架构决策（framefit 源码实测）: fit-copy 的 _fits 需要
-    // size.height——渲染时（固定块内）收敛；plate-frame 的 measure 时机
-    // 无高度约束 → fit-copy 不收敛 → measure 得未缩放自然高（失真偏大）。
-    // autofit 模式: 收敛由 fit-copy 渲染时保证 → plate-frame 禁 panic
-    // （severe-fill 调大）；fill 报告失真在 demand 语义下无影响（该发单/
-    // 不发单边界一致，任务 17 复核）。no-autofit: 原样 measure + panic。
+    // 2026-08-08 字号铁律（用户决策）: 内容不缩放，超出即信号。
+    // autofit 旋钮语义重定义: 开启 = 门禁 1.0（内容超版心即 panic →
+    // "文章不符合"信号）；关闭（--no-autofit）= 门禁 1.05（容忍 5% 溢出）。
+    // 两者都原样渲染（不再用 framefit fit-copy——其 text() 包裹 grid 的
+    // 检测在渲染时不可靠，且字号铁律下无缩放意义，2026-08-08 废弃）。
+    // 分栏修复后 plate-frame measure 准确，fill 门禁可信。
+    let final-body = [#if p.at("date", default: "") != "" [
+      #text(size: header-size)[#p.at("date")] \
+    ]
+    #body]
     plate-frame(
       final-body,
       pid,
       width: width,
       height: content-h,
-      severe-fill: if autofit { 100.0 } else { 1.05 },
+      severe-fill: if autofit { 1.0 } else { 1.05 },
     )
   }
 

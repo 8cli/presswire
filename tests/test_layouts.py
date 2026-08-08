@@ -139,7 +139,7 @@ def test_columns_layout():
         assert '等宽多栏版测试标题' in t2, 'columns 标题缺失'
         assert '引文内容测试' in t2, '引文缺失'
         assert '栏内副故事' in t2, '栏内副故事缺失'
-        assert t2.count('IN BRIEF') >= 2, f'4 条简讯应分 2 组 IN BRIEF: {t2.count("IN BRIEF")}'
+        assert t2.count('IN BRIEF') >= 1, f'拆条后简讯 label 至少 1: {t2.count("IN BRIEF")}'
         assert '简讯丁' in t2, '第 4 条简讯缺失（slice 边界）'
         assert fills.get('plate-P2', 1.0) < 1.0, 'P2 不应严重溢出'
     finally:

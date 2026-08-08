@@ -25,7 +25,8 @@ if str(REPO_ROOT) not in sys.path:
 
 TYPST_CLI = '/usr/local/bin/typst'
 FIXTURES = REPO_ROOT / 'tests' / 'fixtures' / 'layouts'
-LATIN_PLATES = Path.home() / 'news' / 'latex' / 'examples' / 'plates'  # 真实溢出 12%
+LATIN_PLATES = Path.home() / 'news' / 'latex' / 'examples' / 'plates'  # 字体/分栏修复后不再溢出（fill ~0.75）
+OVERFLOW_PLATES = REPO_ROOT / 'tests' / 'fixtures' / 'overflow'  # 必然溢出（1500 词）
 OUT_NAME = 'out-test-library'
 # 输出须在 root 内（Typst 沙箱）→ 用仓库内 tests/tmp-out-library/（test_cli 同模式）
 TMP_ROOT = REPO_ROOT / 'tests' / 'tmp-out-library'
@@ -103,7 +104,7 @@ def test_render_cli_article_mismatch():
     """长文 autofit（字号固定 100%）: article_mismatch=True + code=1。"""
     from presswire.library import render
     with tempfile.TemporaryDirectory(dir=str(TMP_ROOT)) as td:
-        res = render(str(LATIN_PLATES), os.path.join(td, 'out.pdf'),
+        res = render(str(OVERFLOW_PLATES), os.path.join(td, 'out.pdf'),
                      backend='cli', autofit=True)
         assert res['code'] == 1, f'长文应报文章不符合: {res}'
         assert res['article_mismatch'] is True
@@ -114,7 +115,7 @@ def test_render_cli_panic():
     """长文 no-autofit: 严重溢出 panic（D4 红线）。"""
     from presswire.library import render
     with tempfile.TemporaryDirectory(dir=str(TMP_ROOT)) as td:
-        res = render(str(LATIN_PLATES), os.path.join(td, 'out.pdf'),
+        res = render(str(OVERFLOW_PLATES), os.path.join(td, 'out.pdf'),
                      backend='cli', autofit=False)
         assert res['code'] == 1 and res['panic'] is True, f'{res}'
 
@@ -141,7 +142,7 @@ def test_render_typstpy_article_mismatch():
         return
     from presswire.library import render
     with tempfile.TemporaryDirectory(dir=str(TMP_ROOT)) as td:
-        res = render(str(LATIN_PLATES), os.path.join(td, 'out.pdf'),
+        res = render(str(OVERFLOW_PLATES), os.path.join(td, 'out.pdf'),
                      backend='typstpy', autofit=True)
         assert res['code'] == 1 and res['article_mismatch'] is True, f'{res}'
 
@@ -167,7 +168,7 @@ def test_cli_json_article_mismatch():
     with tempfile.TemporaryDirectory(dir=str(TMP_ROOT)) as td:
         out = os.path.join(td, 'out.pdf')
         r = subprocess.run([sys.executable, '-m', 'presswire.cli',
-                            str(LATIN_PLATES), out, '--json',
+                            str(OVERFLOW_PLATES), out, '--json',
                             '--docopts', 'paper=a3,landscape,plates=2,columns=3'],
                            capture_output=True, text=True, cwd=REPO_ROOT)
         assert r.returncode == 1
