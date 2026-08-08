@@ -29,27 +29,17 @@ def _strip_field(s: str) -> str:
 
 
 def _escape(s: str) -> str:
-    """latin tex_escape（build.py:52-74）逐行移植——契约层占位。
+    """Typst 字符串安全转义（任务 5 替换 latin tex_escape）。
 
-    任务 5 替换为 Typst 转义（`\\``、`$`、`<`、`>` 等）；在此之前保持
-    与 latin 完全相同的输出，保证 parse_plate 对照 diff 为零。
-    血泪注释（源自 latin）: 先转义特殊字符（尤其 { }），再处理 markdown
-    加粗/斜体，否则花括号被二次转义渲染成字面 "{"; 反斜杠用 \\x00 占位
-    最后还原为 \\textbackslash{}，避免其 { } 被后续转义。
+    expJ 实测（2026-08-07）: Typst code 字符串字面量里 `# $ < > [ ] * _ { }`
+    全安全，仅两处需转义——`\\` → `\\\\`（反斜杠）、`"` → `\\"`（字符串
+    定界符）。markdown 标记（`**x**`/`*x*`）与中文弯引号（“”）原样保留：
+    - markdown 标记留给渲染层（atoms.typ，任务 10）决定 markup 路径；
+    - 中文弯引号 Typst 原生支持 Unicode，无需像 latin 那样转 LaTeX `` ''。
+    语义无损（Typst 字符串内转义在渲染时还原）。
     """
-    s = s.replace('\\', '\x00')
-    s = s.replace('&', r'\&').replace('%', r'\%').replace('$', r'\$')
-    s = s.replace('#', r'\#').replace('_', r'\_').replace('{', r'\{')
-    s = s.replace('}', r'\}').replace('~', r'\textasciitilde{}')
-    s = s.replace('^', r'\textasciicircum{}')
-    # 中文弯引号 → LaTeX `` ''（英文直引号保留）
-    s = s.replace('“', '``').replace('”', "''")
-    # markdown 加粗 **x** → \textbf{x}（此时特殊字符已转义，花括号安全）
-    s = re.sub(r'\*\*(.+?)\*\*', r'\\textbf{\1}', s)
-    # markdown 斜体 *x* → \textit{x}
-    s = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'\\textit{\1}', s)
-    # 还原反斜杠占位符（最后——\textbackslash{} 的 {} 不再经过 { } 转义）
-    s = s.replace('\x00', r'\textbackslash{}')
+    s = s.replace('\\', '\\\\')
+    s = s.replace('"', '\\"')
     return s
 
 

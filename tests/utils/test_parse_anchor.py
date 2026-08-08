@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""test_parse_anchor.py — presswire parse_plate 对照 latin parse_plate（任务 4 验收 + QA）
+"""test_parse_anchor.py — presswire parse_plate 对照 latin parse_plate（任务 4/5 验收 + QA）
 
 契约锚定（anchor）:
-- golden fixtures: examples/plates/{p1,p2}.md 经 latin parse_plate 的输出固化在
-  tests/utils/golden/*.json；断言 presswire 输出与 golden 一致（字段名/值/类型/顺序）。
+- golden fixtures: examples/plates/{p1,p2}.md 经 presswire parse_plate 的输出固化在
+  tests/utils/golden/*.json（任务 5 起 presswire 为权威: 转义层从 LaTeX tex_escape
+  迁移到 Typst 字符串安全转义，golden 也随之重生成）；断言后续输出与 golden 一致。
 - 动态对照: 真实 daily plates 抽样 3 个，同时跑 presswire 与 latin 两个实现
-  （latin 经 importlib 加载，不污染 sys.modules），逐键递归 diff。
+  （latin 经 importlib 加载，不污染 sys.modules），逐键递归 diff；
+  值比较先做**转义归一化**（latin LaTeX 转义 vs presswire Typst 转义 → 还原为原文），
+  验证解析逻辑一致性而不被转义层差异误报。
 
 用法:
     python3 tests/utils/test_parse_anchor.py        # 独立运行（退出码 0=全过）
@@ -13,6 +16,7 @@
 """
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -43,25 +47,71 @@ def load_latin_parse_plate():
     return mod.parse_plate
 
 
-def diff_dicts(pw, latin, path='root') -> list:
-    """递归逐键 diff 两个 dict（键集合/顺序 + 值）。返回差异行列表。"""
+def latex_unescape(s: str) -> str:
+    """latin tex_escape（build.py:52-74）的逆操作——还原为原文。
+
+    对应关系（latin → 原文）: \\& → &、\\% → %、\\$ → $、\\# → #、\\_ → _、
+    \\{ → {、\\} → }、\\textasciitilde{} → ~、\\textasciicircum{} → ^、
+    \\textbackslash{} → \\、`` → “、'' → ”、\\textbf{x} → **x**、\\textit{x} → *x*。
+    仅用于测试归一化（不是引擎代码）。
+    """
+    s = s.replace(r'\textasciitilde{}', '~').replace(r'\textasciicircum{}', '^')
+    s = s.replace(r'\textbackslash{}', '\\')
+    s = s.replace(r'\{', '{').replace(r'\}', '}').replace(r'\&', '&')
+    s = s.replace(r'\%', '%').replace(r'\$', '$').replace(r'\#', '#').replace(r'\_', '_')
+    s = s.replace('``', '“').replace("''", '”')
+    s = re.sub(r'\\textbf\{([^}]*)\}', r'**\1**', s)
+    s = re.sub(r'\\textit\{([^}]*)\}', r'*\1*', s)
+    return s
+
+
+def typst_unescape(s: str) -> str:
+    """presswire Typst 转义的逆操作——还原为原文。
+
+    对应关系（Typst → 原文）: \\\\ → \\、\\" → "（占位法保证顺序正确）。
+    仅用于测试归一化（不是引擎代码）。
+    """
+    s = s.replace('\\\\', '\x00')   # 先占位所有 \\（反斜杠对）
+    s = s.replace('\\"', '"')        # 再还原 \" → "
+    return s.replace('\x00', '\\')   # 还原占位为单个反斜杠
+
+
+def _same_after_unescape(pw, other, mode) -> bool:
+    """值比较: 非字符串直接比；字符串先转义归一化（还原为原文）再比。
+
+    mode='latin'（动态对照）: pw 用 typst_unescape，other 用 latex_unescape。
+    mode='golden': 两边都是 presswire 输出，都用 typst_unescape。
+    """
+    if not isinstance(pw, str) or not isinstance(other, str):
+        return pw == other
+    pw2 = typst_unescape(pw)
+    other2 = typst_unescape(other) if mode == 'golden' else latex_unescape(other)
+    return pw2 == other2
+
+
+def diff_dicts(pw, other, path='root', mode='latin') -> list:
+    """递归逐键 diff 两个 dict（键集合/顺序 + 值）。返回差异行列表。
+
+    值比较经转义归一化——mode='latin' 时（presswire Typst 转义 vs latin
+    LaTeX 转义）；mode='golden' 时两边同为 presswire 输出。
+    """
     diffs = []
-    if type(pw) is not type(latin):
-        return [f'{path}: 类型不同 presswire={type(pw).__name__} latin={type(latin).__name__}']
+    if type(pw) is not type(other):
+        return [f'{path}: 类型不同 presswire={type(pw).__name__} other={type(other).__name__}']
     if isinstance(pw, dict):
-        if list(pw.keys()) != list(latin.keys()):
-            diffs.append(f'{path}: 键集合/顺序不同\n    presswire={list(pw.keys())}\n    latin    ={list(latin.keys())}')
+        if list(pw.keys()) != list(other.keys()):
+            diffs.append(f'{path}: 键集合/顺序不同\n    presswire={list(pw.keys())}\n    other    ={list(other.keys())}')
         for k in pw:
-            diffs += diff_dicts(pw[k], latin.get(k, '<缺失>'), f'{path}.{k}')
-        for k in set(latin) - set(pw):
-            diffs.append(f'{path}: latin 独有键 {k!r}（presswire 缺失）')
+            diffs += diff_dicts(pw[k], other.get(k, '<缺失>'), f'{path}.{k}', mode)
+        for k in set(other) - set(pw):
+            diffs.append(f'{path}: other 独有键 {k!r}（presswire 缺失）')
     elif isinstance(pw, list):
-        if len(pw) != len(latin):
-            diffs.append(f'{path}: 列表长度不同 presswire={len(pw)} latin={len(latin)}')
-        for i, (a, b) in enumerate(zip(pw, latin)):
-            diffs += diff_dicts(a, b, f'{path}[{i}]')
-    elif pw != latin:
-        diffs.append(f'{path}: 值不同\n    presswire={pw!r}\n    latin    ={latin!r}')
+        if len(pw) != len(other):
+            diffs.append(f'{path}: 列表长度不同 presswire={len(pw)} other={len(other)}')
+        for i, (a, b) in enumerate(zip(pw, other)):
+            diffs += diff_dicts(a, b, f'{path}[{i}]', mode)
+    elif not _same_after_unescape(pw, other, mode):
+        diffs.append(f'{path}: 值不同（原文不一致）\n    presswire={pw!r}\n    other    ={other!r}')
     return diffs
 
 
@@ -72,14 +122,15 @@ def run_pair(name: str, md_path: Path, latin_parse, need_golden: bool) -> list:
     latin = latin_parse(text)
     diffs = diff_dicts(pw, latin)
     if need_golden:
-        # golden fixtures: 固化 latin 输出为 json，与 presswire 输出双向校验
+        # golden fixtures: 固化 presswire 输出为 json（任务 5 起 presswire 为权威，
+        # 转义层已是 Typst；latin 仅动态对照时做转义归一化）
         GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
         golden_file = GOLDEN_DIR / f'{md_path.stem}.json'
         if not golden_file.exists():
             golden_file.write_text(
-                json.dumps(latin, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+                json.dumps(pw, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         golden = json.loads(golden_file.read_text(encoding='utf-8'))
-        diffs += diff_dicts(pw, golden, f'{name}/golden')
+        diffs += diff_dicts(pw, golden, f'{name}/golden', mode='golden')
     return diffs
 
 

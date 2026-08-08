@@ -25,7 +25,7 @@
    ]
   },
   {
-   "headline": "Widows \\& Orphans",
+   "headline": "Widows & Orphans",
    "body": [
     "A widow is a line of text left alone at the top of a page; an orphan is a line stranded at the bottom. Classic typesetting practice eliminates both, often by adjusting leading or rephrasing — the kind of judgment call a compiler warning can only flag, not fix.",
     "Linotype surfaces the first half of the problem automatically: an overfull plate produces a compile-time warning, so a human editor decides whether to trim the text or accept the flag."
