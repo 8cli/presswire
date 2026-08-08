@@ -20,6 +20,7 @@
 #import "theme.typ": themes, theme-state, apply-theme
 #import "autofit.typ": autofit-body
 #import "math.typ": math-setup
+#import "poster.typ": render-poster
 #import "cjk.typ": *   // 任务 14: 四包 show 规则 import 后全局生效（expQ 验证）
 
 #let render-doc(
@@ -72,12 +73,18 @@
     let layout = p.at("layout", default: "")
     let body = if layout == "main-aside" {
       render-mainaside(p, width)
+    } else if layout == "poster" {
+      // 画报（N3）: place 贪心装配（任务 13）——独立于 plate-frame 的
+      // 版心管理（poster 内部 block 含住，plate-frame 外包 measure）
+      render-poster(p, width, content-h)
     } else {
       render-columns(p, width)
     }
     // autofit 旋钮: 开启时对整版内容做 framefit 字号收敛（fit 版心）；
-    // 关闭（--no-autofit）→ 原样渲染（溢出由 plate-frame 报告/panic）
-    let final-body = if autofit {
+    // 关闭（--no-autofit）→ 原样渲染（溢出由 plate-frame 报告/panic）。
+    // 画报（poster）例外: place 贪心装配已固定布局（固定尺寸板块），
+    // framefit 无法收缩（实测 panic: content does not fit）→ 跳过
+    let final-body = if autofit and layout != "poster" {
       [#if p.at("date", default: "") != "" [
         #text(size: header-size)[#p.at("date")] \
       ]

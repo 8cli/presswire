@@ -44,6 +44,11 @@ def _typst_value(s: str) -> str:
     t = s.strip()
     if len(t) > 2 and t.startswith('$') and t.endswith('$'):
         return f'("__block-math__": math.equation({_typst_str(t[1:-1].strip())}, block: true))'
+    # 画报 body 图片标记 ![](path)（任务 13 N3）→ __poster-img__ dict；
+    # latin 无此标记（body 内 ![]() 为字面文本），presswire 新能力
+    img_m = re.match(r'^!\[\]\((.+?)\)$', t)
+    if img_m:
+        return f'("__poster-img__": {_typst_str(img_m.group(1))})'
     if not _MD_MARK_RE.search(s):
         return _typst_str(s)
     parts = []
