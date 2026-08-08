@@ -110,24 +110,9 @@ def compile_typ(typ_path: str, pdf_path: str) -> int:
 
 
 def read_fills(typ_path: str) -> dict:
-    """eval query(metadata) → {plate: {fill, deficit_pt, overflow}}。"""
-    r = subprocess.run([TYPST_CLI, 'eval', '--root', REPO_ROOT,
-                        'query(metadata)', '--in', typ_path,
-                        '--format', 'json'], capture_output=True, text=True)
-    if r.returncode != 0:
-        return {}
-    out = {}
-    for el in json.loads(r.stdout):
-        label = el.get('label', '')
-        v = el.get('value', {})
-        pid = label.strip('<>') if label else v.get('plate', '?')
-        deficit = v.get('deficit_pt', '0pt')
-        out[pid] = {
-            'fill': v.get('fill', 0.0),
-            'deficit_pt': round(float(str(deficit).replace('pt', '')), 1),
-            'overflow': v.get('overflow', False),
-        }
-    return out
+    """eval query(metadata) → {plate: {fill, deficit_pt, overflow}}（任务 17 overflow.py）。"""
+    from .overflow import read_fills as _read
+    return _read(typ_path, REPO_ROOT)
 
 
 def main(argv=None) -> int:
@@ -183,18 +168,8 @@ def main(argv=None) -> int:
 
     # 5. --demand: demand.json（无需求清空旧单，血泪 #53）
     if args.demand:
-        plates_fill = {}
-        for pid, f in fills.items():
-            pnum = pid.replace('plate-P', 'P')
-            # deficit_pt 契约（latin）: (fill_min − fill) × content_h。
-            # plate-frame 报告的 deficit = (1 − fill) × content_h → 反推换算
-            if f['fill'] < 1:
-                content_h = f['deficit_pt'] / (1 - f['fill'])
-            else:
-                content_h = 0
-            deficit = round((contracts.FILL_MIN - f['fill']) * content_h, 1) \
-                if f['fill'] < contracts.FILL_MIN else 0.0
-            plates_fill[pnum] = {'fill': f['fill'], 'deficit_pt': deficit}
+        from .overflow import plates_fill_demand
+        plates_fill = plates_fill_demand(fills)
         dpath = contracts.write_demand_json(out_dir, plates_fill)
         stale = os.path.join(out_dir, 'demand.json')
         if dpath:
