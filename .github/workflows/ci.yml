@@ -1,0 +1,59 @@
+# presswire CI — 任务 20 骨架（任务 19/20 前置提交，随测试套件一起）
+#
+# 方案定案（dev/research/experiments/expN-ci-typst-install.md）:
+#   - Ubuntu runner + Python 3.12（typst-py wheel 无 3.14）
+#   - typst CLI 0.15.1: curl 官方 release musl 静态二进制 → /usr/local/bin
+#   - typst-py 0.15.0: pip 锁版本（与 CLI 0.15.1 实测配套）；其余依赖按下限
+#     （docs/plan-revisions.md 第九节第 6 条: pypdf>=4.0 / pillow>=10.0 / fonttools>=4.50）
+#   - 测试入口: python3 tests/run_tests.py（发现 tests/ 下 test_*.py，
+#     文件级 [SKIP] 占位不计失败）
+#
+# 版本升级: 只改 typst 版本号一处（下方 curl URL + pip 版本），CI 保持透明。
+# 字体: 真实 typst 编译类测试（CJK 渲染）接入后，启用 scripts/ci-install-fonts.sh
+# （任务 3 已备，Noto SC 静态字体；幂等，首次数分钟级）。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install typst CLI (0.15.1, musl release)
+        run: |
+          curl -L -o typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf typst.tar.xz
+          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          typst --version
+
+      - name: Install Python deps (typst-py locked 0.15.0)
+        run: |
+          pip install "typst==0.15.0"
+          pip install "pypdf>=4.0" "pillow>=10.0" "fonttools>=4.50"
+
+      # 任务 19 接入真实 typst 编译测试后启用:
+      # - name: Install fonts (Noto SC 静态实例)
+      #   run: bash scripts/ci-install-fonts.sh
+
+      - name: Smoke — typst CLI + typst-py
+        run: |
+          tmp=$(mktemp -d)
+          printf '# Smoke\n\nHello from presswire CI.\n' > "$tmp/smoke.typ"
+          typst compile "$tmp/smoke.typ" "$tmp/smoke.pdf"
+          test -s "$tmp/smoke.pdf" && echo "typst CLI OK"
+          python3 -c "import typst; print('typst-py OK', typst.__version__)"
+
+      - name: Run regression tests
+        run: python3 tests/run_tests.py
