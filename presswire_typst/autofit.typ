@@ -18,7 +18,7 @@
 
 #let autofit-body(
   body,
-  min-scale: 50%,
+  min-scale: 40%,
   max-scale: 100%,
   steps: 24,
 ) = {
