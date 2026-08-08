@@ -63,6 +63,11 @@ def parse_args(argv=None) -> argparse.Namespace:
         action="store_true",
         help="autofit 收敛后输出 demand.json（imposer 按单补稿）",
     )
+    ap.add_argument(
+        "--root",
+        default=REPO_ROOT,
+        help="Typst 项目根（默认仓库根；日报场景 output 在 ~/news/daily/ 下时指 ~/news/）",
+    )
     return ap.parse_args(argv)
 
 
@@ -102,23 +107,23 @@ def render_kw_to_typst(kw: dict) -> str:
     return ', '.join(parts)
 
 
-def compile_typ(typ_path: str, pdf_path: str) -> int:
+def compile_typ(typ_path: str, pdf_path: str, root: str = REPO_ROOT) -> int:
     """typst compile → 返回退出码（panic 退出码 1，D4 红线实证）。
 
-    --root REPO_ROOT: out.typ 在子目录（如 examples/）时模板 ../ 上溯在 root 内；
-    图片等资产同理相对 root 解析（任务 10 路径语义）。
+    --root: out.typ 在子目录（如 examples/ 或 ~/news/daily/）时模板 ../ 上溯在
+    root 内；图片等资产同理相对 root 解析（任务 10 路径语义）。
     """
-    r = subprocess.run([TYPST_CLI, 'compile', '--root', REPO_ROOT, typ_path, pdf_path],
+    r = subprocess.run([TYPST_CLI, 'compile', '--root', root, typ_path, pdf_path],
                        capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stderr, file=sys.stderr)
     return r.returncode
 
 
-def read_fills(typ_path: str) -> dict:
+def read_fills(typ_path: str, root: str = REPO_ROOT) -> dict:
     """eval query(metadata) → {plate: {fill, deficit_pt, overflow}}（任务 17 overflow.py）。"""
     from .overflow import read_fills as _read
-    return _read(typ_path, REPO_ROOT)
+    return _read(typ_path, root)
 
 
 def main(argv=None) -> int:
@@ -129,10 +134,15 @@ def main(argv=None) -> int:
 
     # 1. 生成 .typ（与 output 同目录，模板相对路径）
     output = os.path.abspath(args.output)
-    # Typst 沙箱: out.typ 与模板资产（presswire_typst/）须在同一 root 内
-    # （同 latin "cwd = 引擎目录"先例——模板类文件须可访问）
-    if not output.startswith(REPO_ROOT + os.sep):
-        print(f'❌ output 必须在仓库根内（模板资产访问）: {REPO_ROOT}', file=sys.stderr)
+    root = os.path.abspath(args.root)
+    # Typst 沙箱: out.typ 与模板资产（presswire_typst/）须在同一 root 内。
+    # --root 默认仓库根；日报场景（imposer）output 在 ~/news/daily/ 下时指
+    # ~/news/（root 内可 ../ 上溯到 presswire_typst/）。模板资产必须在 root 内。
+    if not output.startswith(root + os.sep):
+        print(f'❌ output 必须在项目根内（--root {root}）: {output}', file=sys.stderr)
+        return 2
+    if not os.path.join(REPO_ROOT, 'presswire_typst').startswith(root + os.sep):
+        print(f'❌ --root 必须包含模板资产（presswire_typst/ 在 {REPO_ROOT} 内）', file=sys.stderr)
         return 2
     out_dir = os.path.dirname(output)
     os.makedirs(out_dir, exist_ok=True)
@@ -154,9 +164,9 @@ def main(argv=None) -> int:
     with open(typ_path, 'w', encoding='utf-8') as f:
         f.write(typ_text)
 
-    # 2. 编译
+    # 2. 编译（--root 参数化）
     pdf_path = os.path.join(out_dir, f'{stem}.pdf')
-    code = compile_typ(typ_path, pdf_path)
+    code = compile_typ(typ_path, pdf_path, root)
     if code != 0:
         print(f'❌ typst compile 失败（退出码 {code}）')
         return code
@@ -165,7 +175,7 @@ def main(argv=None) -> int:
     layout_path = contracts.write_layout_json(out_dir, layouts, args.docopts)
 
     # 4. fill 报告（stdout 与 latin 同级信息）
-    fills = read_fills(typ_path)
+    fills = read_fills(typ_path, root)
     if fills:
         for pid, f in sorted(fills.items()):
             flag = '溢出' if f['overflow'] else ('太空' if f['fill'] < 0.95 else '达标')
