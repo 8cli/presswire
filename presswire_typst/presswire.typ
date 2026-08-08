@@ -20,6 +20,7 @@
 #import "theme.typ": themes, theme-state, apply-theme
 #import "autofit.typ": autofit-body
 #import "math.typ": math-setup
+#import "cjk.typ": *   // 任务 14: 四包 show 规则 import 后全局生效（expQ 验证）
 
 #let render-doc(
   plates,                        // 版数据数组（render_typst.py 生成）
