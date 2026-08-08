@@ -19,6 +19,7 @@
 #import "columns.typ": render-columns
 #import "theme.typ": themes, theme-state, apply-theme
 #import "autofit.typ": autofit-body
+#import "math.typ": math-setup
 
 #let render-doc(
   plates,                        // 版数据数组（render_typst.py 生成）
@@ -35,6 +36,8 @@
   set text(size: body-size, lang: "zh", region: "cn",
            font: t.at("body-font"), fill: t.at("ink"))
   set par(justify: true, leading: 0.65em)
+  // 公式字号锁定（U3: 免疫 autofit 缩放）
+  math-setup()
   // 主题 state 同步（atoms 内 context 读 accent/ink）
   theme-state.update(t)
 

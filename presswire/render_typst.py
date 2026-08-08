@@ -20,8 +20,9 @@ import re
 
 __all__ = ['generate_typ', 'render_plates_data', 'render_plate']
 
-# markdown 标记: **bold** 或 *italic*（latin 输入风格，plates.py _escape 原样保留）
-_MD_MARK_RE = re.compile(r'\*\*(.+?)\*\*|(?<!\*)\*([^*]+?)\*(?!\*)')
+# markdown 标记: **bold** / *italic*（latin 输入风格，_escape 原样保留）
+# 公式: $...$（内联紧凑）/ $ ... $（块级带空格，Typst 语法区分）
+_MD_MARK_RE = re.compile(r'\$(.+?)\$|\*\*(.+?)\*\*|(?<!\*)\*([^*]+?)\*(?!\*)')
 
 
 def _typst_str(s: str) -> str:
@@ -32,11 +33,17 @@ def _typst_str(s: str) -> str:
 def _typst_value(s: str) -> str:
     """字符串值 → Typst 字面量。
 
-    纯文本 → code 字符串（免转义路径）；含 markdown 标记（**x**/*x*）→
-    content 表达式（strong/emph 函数调用，2026-08-08 实测: 字符串插值不
-    解析 markup，须结构化构建 content——expJ 反斜杠在 markup 是字面的坑
-    一并规避）。模板渲染兼容字符串与 content 两种值类型。
+    纯文本 → code 字符串（免转义路径）；含富文本标记（公式 $...$ /
+    markdown **x**/*x*）→ content 表达式（math.equation/strong/emph 函数
+    调用——2026-08-08 实测: 字符串插值不解析 markup，须结构化构建 content）。
+    模板渲染兼容字符串与 content 两种值类型。
     """
+    # 纯公式行（整段 strip 后为 $...$）→ 块级公式标记 dict
+    # （2026-08-08 实测: 块级公式在 par 段落内被忽略——模板对 dict 元素
+    # 直接渲染 math.equation 不包 par）
+    t = s.strip()
+    if len(t) > 2 and t.startswith('$') and t.endswith('$'):
+        return f'("__block-math__": math.equation({_typst_str(t[1:-1].strip())}, block: true))'
     if not _MD_MARK_RE.search(s):
         return _typst_str(s)
     parts = []
@@ -45,9 +52,14 @@ def _typst_value(s: str) -> str:
         if m.start() > pos:
             parts.append(_typst_str(s[pos:m.start()]))
         if m.group(1) is not None:
-            parts.append(f'strong({_typst_str(m.group(1))})')
+            # 公式: $...$ 紧凑 → 内联（block: false）；$ ... $ 带首尾空格 → 块级
+            body = m.group(1)
+            block = body != body.strip() or body.strip() == ''
+            parts.append(f'math.equation({_typst_str(body.strip())}, block: {str(block).lower()})')
+        elif m.group(2) is not None:
+            parts.append(f'strong({_typst_str(m.group(2))})')
         else:
-            parts.append(f'emph({_typst_str(m.group(2))})')
+            parts.append(f'emph({_typst_str(m.group(3))})')
         pos = m.end()
     if pos < len(s):
         parts.append(_typst_str(s[pos:]))

@@ -34,7 +34,12 @@
           #v(4pt)
         ]
         #for para in p.at("body", default: ()) [
-          #par[#para]
+          // 块级公式标记 dict → 直接渲染（不包 par，段落内 block 被忽略）
+          #if type(para) == dictionary [
+            #para.at("__block-math__")
+          ] else [
+            #par[#para]
+          ]
         ]
         // 引文进主栏（latin 定案: pullquote → mainstory 正文末尾）
         #if p.at("pullquote", default: "") != "" [
