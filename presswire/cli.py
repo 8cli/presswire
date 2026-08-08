@@ -1,29 +1,26 @@
-"""presswire 命令行入口（任务 16 完整接入）
+"""presswire 命令行入口（任务 16 完整接入 + 2026-08-08 库模式门面化）
 
 参数名与 /home/yupeng/news/latex/build.py 保持一致（D2 契约面）:
     presswire <plates_dir> <output.pdf> [--docopts ...] [--theme ...]
               [--no-autofit] [--visual] [--demand] [--pixelcheck PATH]
+              [--json] [--backend cli|typstpy|auto]
 
-流程（对应 latin build.py main）:
-    1. 解析 docopts（contracts.parse_docopts）→ render-doc 参数映射
-    2. generate_typ → out.typ（与 output 同目录，模板相对路径）
-    3. typst compile → output.pdf
-    4. 写 layout.json（contracts.layout_json）
-    5. --demand: eval 'query(metadata)' → fill → demand.json（无需求清旧单）
-    6. stdout 与 latin 同级信息（PDF/版数/fill 报告）
+2026-08-08 重构（内存通讯第 1+3 步）:
+  - 流水线主体移入 library.render()（控制面进内存，数据面留盘）
+  - cli.main 委托 library → 打印人类可读输出（D2 格式不变）
+  - --json: 纯机器模式——stdout 只输出结构化 JSON（imposer 免正则），
+    人类行全部转 stderr
+  - --backend: cli（subprocess，默认，行为零变化）| typstpy（进程内）| auto
 
 --visual/pixelcheck（任务 18 接入，当前占位提示）。
 """
 import argparse
 import json
 import os
-import subprocess
 import sys
 
-from . import contracts
-from .render_typst import generate_typ
+from .library import render
 
-TYPST_CLI = os.environ.get('TYPST', '/usr/local/bin/typst')
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -68,141 +65,57 @@ def parse_args(argv=None) -> argparse.Namespace:
         default=REPO_ROOT,
         help="Typst 项目根（默认仓库根；日报场景 output 在 ~/news/daily/ 下时指 ~/news/）",
     )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="机器模式: stdout 只输出结构化 JSON（fills/demand/layout/error）",
+    )
+    ap.add_argument(
+        "--backend",
+        default="cli",
+        choices=["cli", "typstpy", "auto"],
+        help="排版后端: cli=subprocess typst CLI（默认）| typstpy=进程内 | auto=探测",
+    )
     return ap.parse_args(argv)
-
-
-def docopts_to_render(docopts: dict) -> dict:
-    """docopts → render-doc 命名参数（paper 尺寸/margin/plates-per-page/theme）。"""
-    kw = {}
-    paper = docopts.get('paper', 'a3')
-    landscape = docopts.get('landscape', False) is True or docopts.get('landscape') == 'true'
-    if paper == 'a3':
-        kw['paper-width'], kw['paper-height'] = ('420mm', '297mm') if landscape else ('297mm', '420mm')
-    elif paper == 'a4':
-        kw['paper-width'], kw['paper-height'] = ('297mm', '210mm') if landscape else ('210mm', '297mm')
-    elif paper == 'letter':
-        kw['paper-width'], kw['paper-height'] = ('279mm', '216mm') if landscape else ('216mm', '279mm')
-    kw['plates-per-page'] = int(docopts.get('plates', '1'))
-    if docopts.get('theme'):
-        kw['theme'] = str(docopts['theme'])
-    return kw
-
-
-def render_kw_to_typst(kw: dict) -> str:
-    """render-doc 命名参数 dict → Typst 调用参数串。
-
-    值类型保持: 数字不带引号（plates-per-page: 2）、bool 小写、
-    length 原样（420mm）、其余字符串带引号。
-    """
-    parts = []
-    for k, v in kw.items():
-        if isinstance(v, bool):
-            parts.append(f'{k}: {str(v).lower()}')
-        elif isinstance(v, (int, float)):
-            parts.append(f'{k}: {v}')
-        elif k in ('paper-width', 'paper-height'):
-            parts.append(f'{k}: {v}')
-        else:
-            parts.append(f'{k}: "{v}"')
-    return ', '.join(parts)
-
-
-def compile_typ(typ_path: str, pdf_path: str, root: str = REPO_ROOT) -> int:
-    """typst compile → 返回退出码（panic 退出码 1，D4 红线实证）。
-
-    --root: out.typ 在子目录（如 examples/ 或 ~/news/daily/）时模板 ../ 上溯在
-    root 内；图片等资产同理相对 root 解析（任务 10 路径语义）。
-    """
-    r = subprocess.run([TYPST_CLI, 'compile', '--root', root, typ_path, pdf_path],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        print(r.stderr, file=sys.stderr)
-        # 2026-08-08 用户决策: 字号固定适宜阅读，不允许缩放缩小。
-        # framefit panic "content does not fit"（min=max=100% 无法缩）=
-        # 内容超出版心 → 明确"文章不符合"信号。imposer 响应: 从 FreshRSS
-        # 选合适长度文章（原文直用），无合适才改写缩小——不是字号缩放。
-        if 'content does not fit' in r.stderr:
-            print('❌ 内容超出版心（字号固定 100% 适宜阅读，不缩放）: 文章不符合。', file=sys.stderr)
-            print('   imposer 响应: 选合适长度文章（原文直用）；无合适 → 改写缩小。', file=sys.stderr)
-    return r.returncode
-
-
-def read_fills(typ_path: str, root: str = REPO_ROOT) -> dict:
-    """eval query(metadata) → {plate: {fill, deficit_pt, overflow}}（任务 17 overflow.py）。"""
-    from .overflow import read_fills as _read
-    return _read(typ_path, root)
 
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    if args.theme and f'theme={args.theme}' not in args.docopts:
-        args.docopts = args.docopts.rstrip(',') + f',theme={args.theme}'
-    opts = contracts.parse_docopts(args.docopts)
-
-    # 1. 生成 .typ（与 output 同目录，模板相对路径）
-    output = os.path.abspath(args.output)
-    root = os.path.abspath(args.root)
-    # Typst 沙箱: out.typ 与模板资产（presswire_typst/）须在同一 root 内。
-    # --root 默认仓库根；日报场景（imposer）output 在 ~/news/daily/ 下时指
-    # ~/news/（root 内可 ../ 上溯到 presswire_typst/）。模板资产必须在 root 内。
-    if not output.startswith(root + os.sep):
-        print(f'❌ output 必须在项目根内（--root {root}）: {output}', file=sys.stderr)
-        return 2
-    if not os.path.join(REPO_ROOT, 'presswire_typst').startswith(root + os.sep):
-        print(f'❌ --root 必须包含模板资产（presswire_typst/ 在 {REPO_ROOT} 内）', file=sys.stderr)
-        return 2
-    out_dir = os.path.dirname(output)
-    os.makedirs(out_dir, exist_ok=True)
-    stem = os.path.splitext(os.path.basename(output))[0]
-    typ_path = os.path.join(out_dir, f'{stem}.typ')
-
-    typ_text, layouts = generate_typ(args.plates_dir, args.docopts)
-    # 模板路径（相对 out.typ 所在目录）: repo_root/presswire_typst/presswire.typ
-    template_abs = os.path.join(REPO_ROOT, 'presswire_typst', 'presswire.typ')
-    template_rel = os.path.relpath(template_abs, out_dir).replace(os.sep, '/')
-    kw = docopts_to_render(opts)
-    kw['autofit'] = not args.no_autofit
-    render_args = render_kw_to_typst(kw)
-    typ_text = (
-        typ_text.split('#import "presswire_typst/presswire.typ": render-doc')[0]
-        + f'#import "{template_rel}": render-doc\n'
-        + f'#render-doc(plates, {render_args})\n'
+    result = render(
+        plates_dir=args.plates_dir, output=args.output, docopts=args.docopts,
+        theme=args.theme, autofit=not args.no_autofit, root=args.root,
+        backend=args.backend, write_demand=args.demand,
     )
-    with open(typ_path, 'w', encoding='utf-8') as f:
-        f.write(typ_text)
 
-    # 2. 编译（--root 参数化）
-    pdf_path = os.path.join(out_dir, f'{stem}.pdf')
-    code = compile_typ(typ_path, pdf_path, root)
-    if code != 0:
-        print(f'❌ typst compile 失败（退出码 {code}）')
-        return code
+    # 机器模式: stdout 纯净 JSON（含错误信号，机器消费者可读 article_mismatch）
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return result['code']
 
-    # 3. layout.json
-    layout_path = contracts.write_layout_json(out_dir, layouts, args.docopts)
+    # 错误: 原始 stderr（如有）+ 格式化错误（与旧 cli 输出一致）
+    if result['code'] != 0:
+        if result['audit_stderr'] and not result['article_mismatch']:
+            print(result['audit_stderr'], file=sys.stderr)
+        if result['error']:
+            print(result['error'], file=sys.stderr)
+        if result['code'] == 1:
+            print(f'❌ typst compile 失败（退出码 {result["code"]}）')
+        return result['code']
 
-    # 4. fill 报告（stdout 与 latin 同级信息）
-    fills = read_fills(typ_path, root)
-    if fills:
-        for pid, f in sorted(fills.items()):
-            flag = '溢出' if f['overflow'] else ('太空' if f['fill'] < 0.95 else '达标')
-            print(f'  {pid}: fill {f["fill"]:.3f} ({flag})')
-    print(f'✅ 已生成 {pdf_path}（{len(layouts)} 版）')
+    # fill 报告（stdout 与 latin 同级信息）
+    for pid, f in sorted(result['fills'].items()):
+        flag = '溢出' if f['overflow'] else ('太空' if f['fill'] < 0.95 else '达标')
+        print(f'  {pid}: fill {f["fill"]:.3f} ({flag})')
+    print(f'✅ 已生成 {result["pdf"]}（{len(result["layouts"])} 版）')
 
-    # 5. --demand: demand.json（无需求清空旧单，血泪 #53）
+    # demand 输出（无需求清空旧单，血泪 #53）
     if args.demand:
-        from .overflow import plates_fill_demand
-        plates_fill = plates_fill_demand(fills)
-        dpath = contracts.write_demand_json(out_dir, plates_fill)
-        stale = os.path.join(out_dir, 'demand.json')
-        if dpath:
-            print(f'  📋 demand.json 已输出: {dpath}（imposer 按单补稿）')
+        if result['demand_path']:
+            print(f'  📋 demand.json 已输出: {result["demand_path"]}（imposer 按单补稿）')
         else:
-            if os.path.exists(stale):
-                os.remove(stale)
             print('  📋 demand.json: 无需求（版面全部达标，旧补稿单已清空）')
 
-    # 6. --visual 占位（任务 18 接入 pixelcheck）
+    # --visual 占位（任务 18 接入 pixelcheck）
     if args.visual:
         print('  ⚠️ --visual/pixelcheck 由任务 18 接入（当前仅生成 layout.json）')
     return 0

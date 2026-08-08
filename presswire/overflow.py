@@ -25,19 +25,14 @@ from . import contracts
 TYPST_CLI = os.environ.get('TYPST', '/usr/local/bin/typst')
 
 
-def read_fills(typ_path: str, root: str) -> dict:
-    """eval query(metadata) → {plate-PN: {fill, deficit_pt, overflow}}。
+def parse_fills(metadata_list: list) -> dict:
+    """metadata 元素列表 → {plate-PN: {fill, deficit_pt, overflow}}（双后端共用）。
 
-    `root`: --root 参数（模板资产沙箱；cli 传 REPO_ROOT）。
-    metadata 长度字段（deficit_pt）JSON 为字符串（"341.18pt"）→ 转 float。
+    `metadata_list`: query(metadata) 结果（CLI eval JSON 或 typst-py eval
+    解析后的 list）。deficit_pt 为字符串（"341.18pt"）→ 转 float。
     """
-    r = subprocess.run([TYPST_CLI, 'eval', '--root', root,
-                        'query(metadata)', '--in', typ_path,
-                        '--format', 'json'], capture_output=True, text=True)
-    if r.returncode != 0:
-        return {}
     out = {}
-    for el in json.loads(r.stdout):
+    for el in metadata_list:
         label = el.get('label', '')
         v = el.get('value', {})
         pid = label.strip('<>') if label else v.get('plate', '?')
@@ -48,6 +43,19 @@ def read_fills(typ_path: str, root: str) -> dict:
             'overflow': v.get('overflow', False),
         }
     return out
+
+
+def read_fills(typ_path: str, root: str) -> dict:
+    """eval query(metadata) → {plate-PN: {fill, deficit_pt, overflow}}。
+
+    `root`: --root 参数（模板资产沙箱；cli 传 REPO_ROOT）。
+    """
+    r = subprocess.run([TYPST_CLI, 'eval', '--root', root,
+                        'query(metadata)', '--in', typ_path,
+                        '--format', 'json'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return {}
+    return parse_fills(json.loads(r.stdout))
 
 
 def plates_fill_demand(fills: dict) -> dict:
