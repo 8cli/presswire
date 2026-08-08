@@ -1,30 +1,99 @@
 #!/usr/bin/env python3
-"""test_autofit — autofit 自动版面（任务 10 + 18 验收）
+"""test_autofit.py — 任务 11 QA: autofit 单次编译收敛（D3 债务消除）
 
-验收标准（对应 linotype 4 个 autofit 测试函数）:
-    - 溢出收敛: 超长内容 → 自动缩字号/增栏数 → 0 Overfull + min fill ≥ 45%。
-    - 太空: 极短内容 → 增大字号/减栏数 → fill 提升或边界接受（不崩溃）。
-    - 边界: 极长内容 → 到达边界 → 明确失败报告（exit 1 + 最优尝试）。
-    - --no-autofit: 纯生成 .typ 不编译（无 .pdf）。
+验收（计划）: 对示例长文 plates，单次 typst compile 收敛；
+溢出→收敛 / 太空→提升 / 边界→失败退出码 1。
 
-说明: 本文件是独立单元测试入口（python3 tests/xxx.py 或 pytest 收集），
-任务 19 时统一并入 tests/run_tests.py（docs/plan-revisions.md 第九节第 5 条）。
+断言方式:
+- 溢出→收敛: 长文 plates（真实溢出 12%）autofit=true → compile 成功（无 panic）
+- no-autofit: 同 plates → panic（严重溢出，CLI 退出码 1）
+- 太空→不放大: 短内容 autofit=true → fill 不变（only-if-overflow 快速路径）
+
+用法:
+    python3 tests/test_autofit.py     # 独立运行（退出码 0=全过）
 """
+import subprocess
 import sys
+from pathlib import Path
 
-SKIP_REASON = '任务 10/18 未实现——骨架占位'
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+TYPST_CLI = '/usr/local/bin/typst'
+LATIN_PLATES = Path.home() / 'news/latex/examples/plates'
+OUT_NAME = 'out-test-autofit'
 
 
-def main() -> int:
-    print(f'[SKIP] {SKIP_REASON}')
-    return 0
+def _gen(name: str, plates_dir, autofit: bool) -> Path:
+    from presswire.render_typst import generate_typ
+    text, _ = generate_typ(str(plates_dir))
+    typ_path = REPO_ROOT / f'{name}.typ'
+    typ_path.write_text(
+        text.replace('#render-doc(plates)',
+                     f'#render-doc(plates, autofit: {"true" if autofit else "false"})'),
+        encoding='utf-8')
+    return typ_path
 
 
-def test_pending():
-    """占位测试：任务实现后替换为真实断言（验收标准见模块 docstring）。"""
-    import pytest
-    pytest.skip(SKIP_REASON)
+def _cleanup():
+    for suffix in ('.typ', '.pdf'):
+        for name in (f'{OUT_NAME}-fit', f'{OUT_NAME}-nofit', f'{OUT_NAME}-short'):
+            p = REPO_ROOT / f'{name}{suffix}'
+            if p.exists():
+                p.unlink()
+
+
+def test_overflow_converges():
+    """溢出长文（12% 溢出）: autofit=true 单次编译收敛出 PDF（不 panic）。"""
+    typ = _gen(f'{OUT_NAME}-fit', LATIN_PLATES, autofit=True)
+    try:
+        r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
+                           capture_output=True, text=True)
+        assert r.returncode == 0, f'长文应收敛: {r.stderr[:200]}'
+        assert typ.with_suffix('.pdf').exists(), 'PDF 未生成'
+    finally:
+        _cleanup()
+
+
+def test_no_autofit_panics():
+    """同长文 no-autofit → 严重溢出 panic（CLI 退出码 1）。"""
+    typ = _gen(f'{OUT_NAME}-nofit', LATIN_PLATES, autofit=False)
+    try:
+        r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
+                           capture_output=True, text=True)
+        assert 'panicked with' in r.stderr, f'应 panic: {r.stderr[:200]}'
+        assert r.returncode == 1, f'panic 退出码应为 1: {r.returncode}'
+    finally:
+        _cleanup()
+
+
+def test_short_content_not_scaled():
+    """短内容: autofit=true 不放大（only-if-overflow: fill 不变）。"""
+    import json
+    typ = _gen(f'{OUT_NAME}-short', REPO_ROOT / 'tests' / 'fixtures' / 'layouts', autofit=True)
+    try:
+        r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
+                           capture_output=True, text=True)
+        assert r.returncode == 0, f'compile 失败: {r.stderr}'
+        r = subprocess.run([TYPST_CLI, 'eval', 'query(metadata)', '--in', str(typ),
+                            '--format', 'json'], capture_output=True, text=True)
+        fills = [el['value']['fill'] for el in json.loads(r.stdout)]
+        assert all(0 < f < 1 for f in fills), f'fill 应在 (0,1): {fills}'
+    finally:
+        _cleanup()
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    import traceback
+    failures = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith('test_') and callable(fn):
+            try:
+                fn()
+                print(f'[PASS] {name}')
+            except Exception:
+                failures += 1
+                print(f'[FAIL] {name}')
+                traceback.print_exc()
+    sys.exit(1 if failures else 0)

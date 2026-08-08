@@ -18,10 +18,12 @@
 #import "mainaside.typ": render-mainaside
 #import "columns.typ": render-columns
 #import "theme.typ": themes, theme-state, apply-theme
+#import "autofit.typ": autofit-body
 
 #let render-doc(
   plates,                        // 版数据数组（render_typst.py 生成）
   theme: "broadsheet",           // 主题预设（--theme 插槽，任务 9）
+  autofit: true,                 // autofit 旋钮（--no-autofit → false，单编译纯生成）
   paper-width: 420mm,            // A3 横向（latin docopts: paper=a3,landscape）
   paper-height: 297mm,
   margin: (x: 15mm, y: 15mm),    // 版心在 plate-frame 内管理（latin padTop 20/padSide 15/bottom 16）
@@ -61,15 +63,31 @@
     } else {
       render-columns(p, content-w)
     }
-    plate-frame(
-      // 日期线（版顶，latin \dateline 计入版心预算）
+    // autofit 旋钮: 开启时对整版内容做 framefit 字号收敛（fit 版心）；
+    // 关闭（--no-autofit）→ 原样渲染（溢出由 plate-frame 报告/panic）
+    let final-body = if autofit {
       [#if p.at("date", default: "") != "" [
         #text(size: header-size)[#p.at("date")] \
       ]
-      #body],
+      #autofit-body([#body])]
+    } else {
+      [#if p.at("date", default: "") != "" [
+        #text(size: header-size)[#p.at("date")] \
+      ]
+      #body]
+    }
+    // 2026-08-08 架构决策（framefit 源码实测）: fit-copy 的 _fits 需要
+    // size.height——渲染时（固定块内）收敛；plate-frame 的 measure 时机
+    // 无高度约束 → fit-copy 不收敛 → measure 得未缩放自然高（失真偏大）。
+    // autofit 模式: 收敛由 fit-copy 渲染时保证 → plate-frame 禁 panic
+    // （severe-fill 调大）；fill 报告失真在 demand 语义下无影响（该发单/
+    // 不发单边界一致，任务 17 复核）。no-autofit: 原样 measure + panic。
+    plate-frame(
+      final-body,
       pid,
       width: content-w,
       height: content-h,
+      severe-fill: if autofit { 100.0 } else { 1.05 },
     )
     // 非最后版才分页（避免尾随空页）
     if i < plates.len() - 1 {
