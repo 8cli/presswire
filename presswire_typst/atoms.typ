@@ -11,16 +11,39 @@
 #import "theme.typ": theme-state
 
 // ---- 版头原子 ----
+// 2026-08-08 用户决策: 标题类原子（kicker/headline/subheadline/deck/
+// expandedtitle/storyheadline/brief label）应用 display-font（无衬线），
+// 正文/署名保持 body-font（衬线）——报纸通行"正文衬线 + 标题黑体"。
 #let kicker(txt) = context {
-  let accent = theme-state.get().at("accent", default: rgb("#8C1D18"))
-  text(size: 9pt, weight: "bold", fill: accent)[#txt]
+  let t = theme-state.get()
+  let accent = t.at("accent", default: rgb("#8C1D18"))
+  text(size: 9pt, weight: "bold", fill: accent,
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
 }
 
-#let headline(txt) = text(size: 15pt, weight: "bold")[#txt]
+#let headline(txt) = context {
+  let t = theme-state.get()
+  text(size: 15pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
+}
 
-#let subheadline(txt) = text(size: 11pt, weight: "bold")[#txt]
+#let subheadline(txt) = context {
+  let t = theme-state.get()
+  text(size: 11pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
+}
 
-#let deck(txt) = text(size: 10pt, style: "italic")[#txt]
+#let deck(txt) = context {
+  let t = theme-state.get()
+  text(size: 10pt, style: "italic",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
+}
+
+#let storyheadline(txt) = context {
+  let t = theme-state.get()
+  text(size: 11pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
+}
 
 #let byline(txt) = text(size: 8pt)[#txt]
 
@@ -28,7 +51,11 @@
 
 #let dateline(txt) = text(size: 8pt)[#txt]
 
-#let expandedtitle(txt) = text(size: 11pt, weight: "bold")[#txt]
+#let expandedtitle(txt) = context {
+  let t = theme-state.get()
+  text(size: 11pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#txt]
+}
 
 // ---- 内容原子 ----
 #let pullquote(txt) = context {
@@ -52,9 +79,11 @@
 }
 
 // brief: 简讯块（label + items 数组）
-#let brief(label, items) = {
+#let brief(label, items) = context {
+  let t = theme-state.get()
   v(3pt)
-  text(size: 9pt, weight: "bold")[#label]
+  text(size: 9pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#label]
   linebreak()
   for item in items [
     #item
@@ -63,8 +92,10 @@
 }
 
 // inbrief: IN BRIEF 条（≤3 条一组，latin \inbrief 对应）
-#let inbrief(label, items) = {
-  text(size: 9pt, weight: "bold")[#label]
+#let inbrief(label, items) = context {
+  let t = theme-state.get()
+  text(size: 9pt, weight: "bold",
+       font: t.at("display-font", default: ("Liberation Sans",)))[#label]
   linebreak()
   for item in items [
     #item

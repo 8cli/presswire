@@ -11,7 +11,7 @@
 // 根因）→ 改用 split-columns（measure 贪心分组 + grid 并排）。
 // 注意: Typst 数组 .push() 原地修改、返回 none。
 
-#import "atoms.typ": kicker, headline, deck, byline, storybyline, pullquote, photo, inbrief
+#import "atoms.typ": kicker, headline, deck, byline, storybyline, storyheadline, pullquote, photo, inbrief
 #import "columns.typ": split-columns
 
 #let render-mainaside(p, content-w, col-gap: 3.75mm) = context {
@@ -68,7 +68,7 @@
       // ---- 侧栏: 副故事 + IN BRIEF ----
       #for (si, st) in p.at("stories", default: ()).enumerate() [
         #if si > 0 [ #v(6pt) #line(length: 100%) ]
-        #text(size: 11pt, weight: "bold")[#st.at("headline", default: "")]
+        #storyheadline(st.at("headline", default: ""))
         #if st.at("byline", default: "") != "" [
           #storybyline(st.at("byline")) \
         ]

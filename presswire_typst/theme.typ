@@ -17,17 +17,20 @@
 // 自动走 Noto——Typst 按字符回退，中英混排不受影响）。
 
 #let themes = (
-  // broadsheet（默认，对应 latin newspaper）: 衬线 + 深红
+  // broadsheet（默认，对应 latin newspaper）: 衬线正文 + 无衬线标题 + 深红
+  // 2026-08-08 用户决策: 标题（headline/kicker/deck）换无衬线（报纸通行
+  // 风格: 正文衬线 + 标题黑体，如 Franklin Gothic 类）。Liberation Sans
+  // = Arial 度量兼容（Typst 内置），中文回退 Noto Sans CJK SC。
   "broadsheet": (
     body-font: ("Libertinus Serif", "Noto Serif CJK SC", "New Computer Modern"),
-    display-font: ("Libertinus Serif", "Noto Serif CJK SC"),
+    display-font: ("Liberation Sans", "Noto Sans CJK SC"),
     accent: rgb("#8C1D18"),
     ink: rgb("#1A1A1A"),
   ),
   // magazine: 深蓝强调（latin magazine 契约）
   "magazine": (
     body-font: ("Libertinus Serif", "Noto Serif CJK SC", "New Computer Modern"),
-    display-font: ("Libertinus Serif", "Noto Serif CJK SC"),
+    display-font: ("Liberation Sans", "Noto Sans CJK SC"),
     accent: rgb("#1B3A5C"),
     ink: rgb("#1A1A1A"),
   ),

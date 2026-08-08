@@ -13,7 +13,7 @@
 //      栏高均衡 + 阅读顺序保持 + 版心用满。grid 是块级布局，measure 准确。
 // 注意: Typst 数组 .push() 原地修改、返回 none（勿写 items = items.push(...)）。
 
-#import "atoms.typ": kicker, headline, subheadline, deck, byline, storybyline, expandedtitle, pullquote, photo, inbrief
+#import "atoms.typ": kicker, headline, subheadline, deck, byline, storybyline, storyheadline, expandedtitle, pullquote, photo, inbrief
 
 // ---- 手动分栏（measure 贪心，须在 context 内调用）----
 // items: content 元素数组；n: 栏数；col-w: 单栏宽
@@ -129,7 +129,7 @@
   for st in p.at("stories", default: ()) {
     items.push(block[
       #v(3pt)
-      #text(size: 11pt, weight: "bold")[#st.at("headline", default: "")]
+      #storyheadline(st.at("headline", default: ""))
       #if st.at("byline", default: "") != "" [
         #storybyline(st.at("byline")) \
       ]
