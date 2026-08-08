@@ -117,6 +117,13 @@ def compile_typ(typ_path: str, pdf_path: str, root: str = REPO_ROOT) -> int:
                        capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stderr, file=sys.stderr)
+        # 2026-08-08 用户决策: 字号固定适宜阅读，不允许缩放缩小。
+        # framefit panic "content does not fit"（min=max=100% 无法缩）=
+        # 内容超出版心 → 明确"文章不符合"信号。imposer 响应: 从 FreshRSS
+        # 选合适长度文章（原文直用），无合适才改写缩小——不是字号缩放。
+        if 'content does not fit' in r.stderr:
+            print('❌ 内容超出版心（字号固定 100% 适宜阅读，不缩放）: 文章不符合。', file=sys.stderr)
+            print('   imposer 响应: 选合适长度文章（原文直用）；无合适 → 改写缩小。', file=sys.stderr)
     return r.returncode
 
 

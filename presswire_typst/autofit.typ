@@ -1,24 +1,30 @@
-// autofit.typ — autofit-in-typst 适配层（任务 11，D3 债务消除）
+// autofit.typ — 内容-版心适配层（任务 11；2026-08-08 用户决策重定义）
 //
-// 核心: framefit 0.1.0 fit-copy（expE 实测）——编译内 measure 二分收敛，
-// 单次 compile（对比 latin 3-16 次 xelatex 循环）。
-//   fit-copy(min: ratio, max: ratio|none, max-lines, steps: 24,
-//            only-if-overflow: false, body)
-//   - 无 width/height 参数: layout(size => ...) 内用容器尺寸（固定版心内 =
-//     block 宽高）；min/max 是比例非长度
-//   - only-if-overflow: true 先测 100% 装得下则不缩放（内容不满不放大）
-//   - 只缩字号**不报溢出**——溢出报告归 plate.typ 的 measure + metadata
+// **用户决策（2026-08-08）: 字号固定适宜阅读，不允许缩放缩小。**
+// 内容放不下 → 由 imposer 层解决（选合适长度文章 / 改写），不是缩字号。
 //
-// 注意（2026-08-08 集成实测）: fit-copy 内层 layout 需要宽度约束——包在
-// columns 内时容器 = 列宽；包在 render-doc 版式外层时容器 = 版心宽。
-// one-liner 线性初值（计划调研补充）: only-if-overflow 快速路径已覆盖
-// "不满不缩"场景，24 步二分对溢出场景收敛足够——初值优化留待需要时。
+// 本模块职责（autofit 模式）:
+//   以固定字号（100%）渲染内容，**检测**是否超出版心——
+//   - 放得下: 原样渲染（only-if-overflow 快速路径）
+//   - 放不下: 报"内容超出版心（字号固定不可缩）"信号 → CLI 退出码 1 →
+//     imposer 响应: 换合适长度文章 或 改写缩小（不是字号缩放）
+//
+// 实现: framefit 0.1.0 fit-copy（expE 实测）仅用其"检测 100% 是否装得下"
+// 能力（only-if-overflow: true + min/max 都是 100% → 不缩放、只判断）:
+//   - only-if-overflow: true 先测 100%，装得下 → 不缩放原样输出
+//   - 装不下 → fit-copy 按 min 缩放尝试……但 min=max=100% 时无法缩 →
+//     panic "content does not fit"（framefit 自身语义，成为信号）
+// 注: min: 100%, max: 100% 时 framefit 行为 = 只测 100%，失败即 panic——
+// 这正是"固定字号 + 超出即信号"的语义。
+//
+// 版本注意: framefit 0.1.0 的 min/max 是比例非长度；only-if-overflow
+// 要求 min ≤ 100%。
 
 #import "@preview/framefit:0.1.0": fit-copy
 
 #let autofit-body(
   body,
-  min-scale: 40%,
+  min-scale: 100%,   // 固定 100%: 不缩放（用户决策——字号适宜阅读优先）
   max-scale: 100%,
   steps: 24,
 ) = {

@@ -44,14 +44,18 @@ def _cleanup():
                 p.unlink()
 
 
-def test_overflow_converges():
-    """溢出长文（12% 溢出）: autofit=true 单次编译收敛出 PDF（不 panic）。"""
+def test_overflow_signals_article_mismatch():
+    """溢出长文（12% 溢出）: autofit=true 字号固定 100% 不缩放 → 明确"文章
+    不符合"信号（CLI 退出码 1 + framefit panic）。2026-08-08 用户决策:
+    内容适配靠 imposer 选/改文章，不是字号缩放。"""
     typ = _gen(f'{OUT_NAME}-fit', LATIN_PLATES, autofit=True)
     try:
         r = subprocess.run([TYPST_CLI, 'compile', str(typ), str(typ.with_suffix('.pdf'))],
                            capture_output=True, text=True)
-        assert r.returncode == 0, f'长文应收敛: {r.stderr[:200]}'
-        assert typ.with_suffix('.pdf').exists(), 'PDF 未生成'
+        assert r.returncode == 1, f'超版心应报信号（不缩放）: {r.stderr[:200]}'
+        assert 'content does not fit' in r.stderr, f'应 framefit panic: {r.stderr[:200]}'
+        # 不生成 PDF（超出即失败，imposer 选/改文章）
+        assert not typ.with_suffix('.pdf').exists(), '超出不应出 PDF'
     finally:
         _cleanup()
 
