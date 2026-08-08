@@ -39,6 +39,11 @@ DAILY_SAMPLES = [
 ]
 
 
+def latin_ref_available() -> bool:
+    """latin 参考源（build.py + examples）是否可读。CI 无 → 跳过对照。"""
+    return LATIN_BUILD.exists() and EXAMPLES_DIR.is_dir()
+
+
 def load_latin_parse_plate():
     """importlib 加载 latin build.py → parse_plate 函数。"""
     spec = importlib.util.spec_from_file_location('latin_build_for_test', LATIN_BUILD)
@@ -169,6 +174,11 @@ def test_daily_samples_match_latin():
 
 
 def main() -> int:
+    # CI（GitHub Actions）无 /home/.../news/latex 参考源 → 标 [SKIP] 退出 0，
+    # 不算失败（run_tests.py 按 "[SKIP]" 行归类）。本地路径存在则照常全跑。
+    if not latin_ref_available():
+        print('[SKIP] latin 参考源缺失（CI 环境），跳过对照测试')
+        return 0
     latin_parse = load_latin_parse_plate()
     failures = 0
     pairs = all_pairs(latin_parse)
