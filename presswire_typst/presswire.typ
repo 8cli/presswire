@@ -46,10 +46,12 @@
 
   // 版心尺寸（latin linotype.cls 契约）: contentH = 297 − 20 − 16 = 261mm
   // 双版并排（plates=2）: 每版宽 = 0.5·paperW − 2·padSide（latin contentW 公式）
+  // 2026-08-08 修复: 微收 2pt——词框 ink 外伸（斜体/引号）曾致左版右缘
+  // 溢出 2pt 被 clip 裁剪（用户反馈）；收窄后任何 ink 外伸都在 block 内。
   let content-w = if plates-per-page == 2 {
-    paper-width * 0.5 - 2 * 15mm
+    paper-width * 0.5 - 2 * 15mm - 2pt
   } else {
-    paper-width - 2 * 15mm
+    paper-width - 2 * 15mm - 2pt
   }
   let content-h = paper-height - 20mm - 16mm
   let col-gap = 3.75mm   // latin \colGap（双版并排的栏缝）

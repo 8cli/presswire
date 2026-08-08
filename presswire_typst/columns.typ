@@ -46,6 +46,37 @@
     groups.push(cur)
     while groups.len() < n { groups.push(()) }
   }
+  // ---- 平衡（2026-08-08 用户反馈: 栏底不齐、矮栏下部大片留白）----
+  // 贪心只按"累计 ≥ target 切"，元素粒度粗 → 前几栏满、末栏空。
+  // 后处理: 反复把最高栏末元素移至最低栏，直到栏高差 < 50pt（视觉栏底齐平）。
+  // 阅读顺序大体保持（块级移动，报纸跨栏续读可接受）。
+  let col-height = groups.map(g =>
+    g.map(it => measure(it, width: col-w).height + lead).fold(0pt, (a, b) => a + b))
+  let guard = 0
+  while guard < 20 {
+    let hi = 0
+    let lo = 0
+    for i in range(n) {
+      if col-height.at(i) > col-height.at(hi) { hi = i }
+      if col-height.at(i) < col-height.at(lo) { lo = i }
+    }
+    if col-height.at(hi) - col-height.at(lo) < 50pt { break }
+    if groups.at(hi).len() <= 1 { break }
+    let moved = groups.at(hi).pop()
+    groups.at(lo).push(moved)
+    let calc = g => g.map(it => measure(it, width: col-w).height + lead)
+      .fold(0pt, (a, b) => a + b)
+    let nh = ()
+    for i in range(n) {
+      if i == hi or i == lo {
+        nh.push(calc(groups.at(i)))
+      } else {
+        nh.push(col-height.at(i))
+      }
+    }
+    col-height = nh
+    guard += 1
+  }
   groups
 }
 

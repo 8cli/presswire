@@ -50,6 +50,10 @@
     }
 
     // 固定版心（H1 实证）: 含住溢出 + clip 截断 + 不跨页
+    // 2026-08-08 修复: 移除 inset——此前 inset(x:6pt,y:4pt) 使内容宽 = block宽−12pt，
+    // 但 mainaside/columns 的 grid 总宽按 content-w（block 宽）排 → 内容横向溢出
+    // 12pt 被 clip 裁剪（P1 侧栏右缘实测被裁）；且 measure(width: block宽) 比
+    // 渲染内容宽 → fill 失真。去 inset 后 内容宽 = block宽 = grid总宽，三者一致。
     block(
       width: width,
       height: height,
@@ -57,7 +61,6 @@
       breakable: false,
       fill: white,
       stroke: 0.5pt + rgb("#cccccc"),   // 调试边框（任务 9 theme 接管样式）
-      inset: (x: 6pt, y: 4pt),
     )[#body]
   }
 }
