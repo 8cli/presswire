@@ -106,8 +106,8 @@ P0 spike（`dev/p0.capacity.md`）三个假设全成立，阻塞解除：
 ## 八、2026-08-07 第二轮补充（panic 修正 + 标题/并排实测）
 
 ### 任务 7 D4 红线修正（重要）
-- **实测**：`#panic()` 使 CLI 退出码为 **0**（语法错误才是 1）——「严重溢出 panic（退出码非0，QA 门禁）」按字面用 CLI 判断会**静默失效**。
-- **修复**：改用 typst-py 捕获——`typst.compile()` 遇 panic 抛 `TypstError` 异常 → Python `sys.exit(1)`（实测验证：`panicked with: 严重溢出` → TypstError 被捕获）。
+- **2026-08-08 事实修正**：无管道精确测量（subprocess 直取 returncode）——`#panic()` 使 CLI 退出码为 **1**（语法错误同样 1）。早前"退出码 0"记录来自管道测量错误（`| head` 使 `$?` 变为 head 退出码）。CLI 实际上**能**用退出码判断 panic。
+- **方案仍用 typst-py 捕获（不变，理由更充分）**：① 进程内（免子进程）；② TypstError 结构化异常（CLI 只能退出码 + stderr 文本）；③ 编译后同进程直接 `eval('query(metadata)')` 读 fill → demand.json（任务 17 闭环）。`typst.compile()` 遇 panic 抛 `TypstError` → Python `sys.exit(1)`（实测验证：`panicked with: 严重溢出` → TypstError 被捕获）。
 - 非严重溢出：compile 成功 → `typst.eval('query(metadata)')` 读 fill → demand.json（照常）。
 
 ### 任务 15 标题宽度（expO1 实测）
