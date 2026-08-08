@@ -15,8 +15,11 @@
 #import "columns.typ": split-columns
 
 #let render-mainaside(p, content-w, col-gap: 3.75mm) = context {
-  let main-w = content-w * 2 / 3 - col-gap / 3
-  let aside-w = content-w / 3 - col-gap * 2 / 3
+  // 2026-08-08 修复: grid 总宽 = content-w − INK-MARGIN（字形 ink 贴边被
+  // clip 裁剪——用户视觉验收发现）。右侧留 4pt，任何 ink 外伸都在 block 内。
+  let INK-MARGIN = 4pt
+  let main-w = (content-w - INK-MARGIN) * 2 / 3 - col-gap / 3
+  let aside-w = (content-w - INK-MARGIN) / 3 - col-gap * 2 / 3
   let col-w = (main-w - col-gap) / 2  // 主栏两栏单栏宽
 
   // ---- 主栏元素（图片 → 正文 → 引文 → 主栏补白简讯）----
@@ -50,6 +53,9 @@
     items.push(text(size: 8pt)[#item])
   }
   let groups = split-columns(items, 2, col-w)
+  // 2026-08-08 修复: 主栏 grid 用显式 col-w 列宽（非 1fr）——1fr 等分与
+  // measure 不一致 → 渲染栏高 > measure → 平衡失效（P1 主栏1 实测 619pt
+  // 留白 121pt，用户反馈）。显式列宽 = measure 宽度，渲染与 measure 一致。
   let main-cells = ([#for it in groups.at(0) [#it]], [], [#for it in groups.at(1) [#it]])
 
   grid(
@@ -61,7 +67,7 @@
       #if p.at("deck", default: "") != "" [ #deck(p.at("deck")) \ ]
       #if p.at("byline", default: "") != "" [ #byline(p.at("byline")) \ ]
       #v(4pt)
-      #grid(columns: (1fr, col-gap, 1fr), ..main-cells)
+      #grid(columns: (col-w, col-gap, col-w), ..main-cells)
     ],
     [],
     [

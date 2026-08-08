@@ -31,7 +31,9 @@
     let natural-h = measure(body, width: width).height
     let fill = natural-h / height
     let deficit_pt = height - natural-h
-    let overflow = natural-h > height
+    // 2026-08-08 修复: measure 与渲染有 ~10pt 系统偏差（低估）→ overflow 判定
+    // 留 15pt 余量（height - 15pt），fill 0.97 时渲染仍不超版心被裁（用户反馈）。
+    let overflow = natural-h > height - 15pt
 
     // 报告通道（P0 定案: metadata 相邻 label，供 eval 'query(metadata)' 取回）
     // 零尺寸 block 包住（metadata/label 须被布局才可被 query 查到，且不占版面）

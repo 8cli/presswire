@@ -55,6 +55,10 @@
   }
   let content-h = paper-height - 20mm - 16mm
   let col-gap = 3.75mm   // latin \colGap（双版并排的栏缝）
+  // ink 边距（2026-08-08）: 字形 ink 外伸贴 block 右缘被 clip 裁剪 → grid
+  // 总宽收 4pt；plate-frame measure 须用同宽（width - INK-MARGIN）保证
+  // fill 准确（measure 与渲染一致）。
+  let INK-MARGIN = 4pt
 
   // ---- 空版占位嵌入（无 plates 输入时仍能编译出 PDF）----
   if plates.len() == 0 {
@@ -87,7 +91,10 @@
     // "文章不符合"信号）；关闭（--no-autofit）= 门禁 1.05（容忍 5% 溢出）。
     // 两者都原样渲染（不再用 framefit fit-copy——其 text() 包裹 grid 的
     // 检测在渲染时不可靠，且字号铁律下无缩放意义，2026-08-08 废弃）。
-    // 分栏修复后 plate-frame measure 准确，fill 门禁可信。
+    // 2026-08-08 修复（measure 与渲染一致）: render-columns/mainaside 内部
+    // grid 总宽 = content-w − INK-MARGIN(4pt)（防 ink 贴边裁剪）；plate-frame
+    // 的 measure 必须用同一宽度（content-w − 4pt），否则 measure 低估高度
+    // ~10pt → fill 0.99 渲染已超版心被裁（用户反馈）。
     let final-body = [#if p.at("date", default: "") != "" [
       #text(size: header-size)[#p.at("date")] \
     ]
@@ -95,9 +102,13 @@
     plate-frame(
       final-body,
       pid,
-      width: width,
+      width: width - INK-MARGIN,
       height: content-h,
-      severe-fill: if autofit { 1.0 } else { 1.05 },
+      // 2026-08-08 门禁收紧: measure 与渲染有 ~10pt 系统偏差（低估），
+      // severe-fill 1.0 时 fill 0.99 渲染已超版心被裁（用户反馈）→ 收到
+      // 0.97 留 3% 余量。目标 fill 区间 0.95-0.97（用户要求 ≥0.95）。
+      // poster 例外: 画报固定布局（place 贪心），fill 1.0 合法 → 保持 1.05。
+      severe-fill: if autofit and layout != "poster" { 0.97 } else { 1.05 },
     )
   }
 

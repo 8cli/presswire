@@ -48,7 +48,9 @@
   }
   // ---- 平衡（2026-08-08 用户反馈: 栏底不齐、矮栏下部大片留白）----
   // 贪心只按"累计 ≥ target 切"，元素粒度粗 → 前几栏满、末栏空。
-  // 后处理: 反复把最高栏末元素移至最低栏，直到栏高差 < 50pt（视觉栏底齐平）。
+  // 后处理: 反复从最高栏取出**最小可移动元素**（尺寸最接近补缺量的），
+  // 放入最低栏，直到栏高差 < 50pt 或无法再移。取最小元素而非末尾——
+  // 末尾元素可能是大块（STORY 段），移走会让高栏骤降、低栏骤增（震荡）。
   // 阅读顺序大体保持（块级移动，报纸跨栏续读可接受）。
   let col-height = groups.map(g =>
     g.map(it => measure(it, width: col-w).height + lead).fold(0pt, (a, b) => a + b))
@@ -61,9 +63,34 @@
       if col-height.at(i) < col-height.at(lo) { lo = i }
     }
     if col-height.at(hi) - col-height.at(lo) < 50pt { break }
-    if groups.at(hi).len() <= 1 { break }
-    let moved = groups.at(hi).pop()
-    groups.at(lo).push(moved)
+    // 最高栏找最小元素（避免移大块造成震荡）
+    let hi-group = groups.at(hi)
+    let lo-group = groups.at(lo)
+    let pick = -1
+    let pick-h = (col-height.at(hi) - col-height.at(lo))  // 目标: 移走 ≈ 差的一半
+    let best = 1e10pt
+    for i in range(hi-group.len()) {
+      let h = measure(hi-group.at(i), width: col-w).height + lead
+      let dist = calc.abs(h - pick-h / 2)
+      if h < best and h < col-height.at(hi) - col-height.at(lo) {
+        best = h
+        pick = i
+      }
+    }
+    if pick < 0 { break }
+    let moved = hi-group.remove(pick)
+    lo-group.push(moved)
+    let new-groups = ()
+    for i in range(n) {
+      if i == hi {
+        new-groups.push(hi-group)
+      } else if i == lo {
+        new-groups.push(lo-group)
+      } else {
+        new-groups.push(groups.at(i))
+      }
+    }
+    groups = new-groups
     let calc = g => g.map(it => measure(it, width: col-w).height + lead)
       .fold(0pt, (a, b) => a + b)
     let nh = ()
@@ -96,12 +123,22 @@
   } else {
     int(p.at("columns"))
   }
-  let col-w = (content-w - col-gap * (n - 1)) / n
-  let grid-cols = (1fr,)
-  for i in range(1, n) {
-    grid-cols.push(col-gap)
-    grid-cols.push(1fr)
+  // 2026-08-08 修复: grid 总宽 = content-w − INK-MARGIN——文字字形 ink 会
+  // 超出词框（斜体/粗体/尾字母），grid 总宽 = block 宽时 ink 贴 block 右缘
+  // 被 clip 裁剪（用户视觉验收发现）。右侧留 4pt ink 边距，任何 ink 外伸
+  // 都在 block 内。
+  let INK-MARGIN = 4pt
+  let col-w = (content-w - INK-MARGIN - col-gap * (n - 1)) / n
+  // 2026-08-08 修复: grid 列宽用显式 col-w（非 1fr）——1fr 等分与 measure
+  // 不一致导致渲染栏高 > measure 栏高（实测差 150pt+），平衡算法基于
+  // measure 失效、内容堆栏0。显式列宽 = measure 宽度，渲染与 measure 一致。
+  let grid-cols = ()
+  for i in range(n) {
+    if i > 0 { grid-cols.push(col-gap) }
+    grid-cols.push(col-w)
   }
+  // grid 总宽 = content-w - INK-MARGIN（1fr 自动分配）
+  let grid-total = content-w - INK-MARGIN
   // ---- 单连续流元素（顺序: 图片 → 正文 → 引文 → 副条 → IN BRIEF 条）----
   let items = ()
   if p.at("image", default: "") != "" {
@@ -127,16 +164,16 @@
     items.push(v(3pt) + pullquote(p.at("pullquote")))
   }
   for st in p.at("stories", default: ()) {
-    items.push(block[
-      #v(3pt)
-      #storyheadline(st.at("headline", default: ""))
-      #if st.at("byline", default: "") != "" [
-        #storybyline(st.at("byline")) \
-      ]
-      #for para in st.at("body", default: ()) [
-        #par[#para]
-      ]
-    ])
+    // 2026-08-08 修复: STORY 块拆段——整块（标题+署名+正文）作为单元素时
+    // 大块（如 395pt Tianwen）无法平衡（放哪栏哪栏超载）。拆成标题块 +
+    // 每正文段独立元素，平衡可细粒度移动段落 → 栏底齐平。
+    items.push(v(3pt) + storyheadline(st.at("headline", default: "")))
+    if st.at("byline", default: "") != "" {
+      items.push(storybyline(st.at("byline")))
+    }
+    for para in st.at("body", default: ()) {
+      items.push(par[#para])
+    }
   }
   // 简讯拆条（每 3 条一组 IN BRIEF 块太大 → 单条元素，label 只在首条）
   let briefs = p.at("briefs", default: ())
@@ -158,6 +195,7 @@
     #if p.at("byline", default: "") != "" [ #byline(p.at("byline")) \ ]
     #if p.at("expanded", default: "") != "" [ #expandedtitle(p.at("expanded")) \ ]
     #v(4pt)
-    #grid(columns: grid-cols, ..grid-cells(groups))
+    // grid 容器宽 = grid-total（content-w − ink 边距）→ 栏宽 = col-w，文字不贴边
+    #block(width: grid-total)[#grid(columns: grid-cols, ..grid-cells(groups))]
   ]
 }
