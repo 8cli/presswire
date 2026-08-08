@@ -16,13 +16,44 @@
    layouts:  {p1: 'multi'|'single', ...}（layout.json 消费，contracts 任务 6）
 """
 import os
+import re
 
 __all__ = ['generate_typ', 'render_plates_data', 'render_plate']
+
+# markdown 标记: **bold** 或 *italic*（latin 输入风格，plates.py _escape 原样保留）
+_MD_MARK_RE = re.compile(r'\*\*(.+?)\*\*|(?<!\*)\*([^*]+?)\*(?!\*)')
 
 
 def _typst_str(s: str) -> str:
     """Python 字符串 → Typst code 字符串字面量（值已 _escape，直接加引号）。"""
     return '"' + s + '"'
+
+
+def _typst_value(s: str) -> str:
+    """字符串值 → Typst 字面量。
+
+    纯文本 → code 字符串（免转义路径）；含 markdown 标记（**x**/*x*）→
+    content 表达式（strong/emph 函数调用，2026-08-08 实测: 字符串插值不
+    解析 markup，须结构化构建 content——expJ 反斜杠在 markup 是字面的坑
+    一并规避）。模板渲染兼容字符串与 content 两种值类型。
+    """
+    if not _MD_MARK_RE.search(s):
+        return _typst_str(s)
+    parts = []
+    pos = 0
+    for m in _MD_MARK_RE.finditer(s):
+        if m.start() > pos:
+            parts.append(_typst_str(s[pos:m.start()]))
+        if m.group(1) is not None:
+            parts.append(f'strong({_typst_str(m.group(1))})')
+        else:
+            parts.append(f'emph({_typst_str(m.group(2))})')
+        pos = m.end()
+    if pos < len(s):
+        parts.append(_typst_str(s[pos:]))
+    if len(parts) == 1:
+        return parts[0]
+    return '(' + ' + '.join(parts) + ')'
 
 
 def _typst_array(items: list) -> str:
@@ -37,8 +68,8 @@ def _typst_array(items: list) -> str:
 
 
 def _typst_plates_list(v: list) -> str:
-    """字符串数组 → Typst 数组字面量 `("a", "b",)`。"""
-    return _typst_array([_typst_str(x) for x in v])
+    """字符串数组 → Typst 数组字面量（富文本标记转 content 表达式）。"""
+    return _typst_array([_typst_value(x) for x in v])
 
 
 def _typst_story(st: dict) -> str:
@@ -49,7 +80,7 @@ def _typst_story(st: dict) -> str:
         if isinstance(val, list):
             parts.append(f'"{k}": {_typst_plates_list(val)}')
         else:
-            parts.append(f'"{k}": {_typst_str(val)}')
+            parts.append(f'"{k}": {_typst_value(val)}')
     return '(' + ', '.join(parts) + ')'
 
 
@@ -69,7 +100,7 @@ def render_plate(p: dict) -> str:
             else:
                 parts.append(f'"{k}": {_typst_plates_list(val)}')
         else:
-            parts.append(f'"{k}": {_typst_str(val)}')
+            parts.append(f'"{k}": {_typst_value(val)}')
     return '(' + ', '.join(parts) + ')'
 
 

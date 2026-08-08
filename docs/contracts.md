@@ -94,7 +94,11 @@ stories 元素: {headline, byline, body[]}（STORY-B/C 无 byline 键——latin
 ```
 
 - 字符串值已 `_escape`（Typst code 字符串安全：`\\`→`\\\\`、`"`→`\"`，其余原样）。
-- 富文本标记（`**x**`/`*x*`）在值里原样保留，由 atoms 原子转 markup。
+- **富文本（2026-08-08 实现）**：含 markdown 标记（`**x**`/`*x*`）的值生成
+  **content 表达式**（`strong("x") + " rest"`）——Typst 字符串插值不解析 markup，
+  须结构化构建（实测）；纯文本保持字符串。模板渲染兼容两种类型。
+- 图片路径：`IMAGE` 值按 Typst 语义相对模板文件（`presswire_typst/`）解析，
+  须 `../xxx` 上溯；cli（任务 16）负责把用户路径转模板相对路径。
 
 ## 变更规则
 
